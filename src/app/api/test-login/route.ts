@@ -1,56 +1,37 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { adminDb } from '@/lib/firebase-config';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
     try {
-        const { email, password } = await request.json();
+        const body = await req.json();
+        const { email } = body;
 
-        console.log('🔍 Testing login for:', email);
-
-        // Find user
-        const user = await prisma.user.findUnique({
-            where: { email },
-        });
-
-        if (!user) {
-            return NextResponse.json({
-                success: false,
-                error: 'User not found',
-                email,
-            }, { status: 404 });
+        if (!email) {
+            return NextResponse.json({ error: 'Email is required' }, { status: 400 });
         }
 
-        if (!user.password) {
-            return NextResponse.json({
-                success: false,
-                error: 'User has no password set',
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                },
-            }, { status: 400 });
+        const userSnapshot = await adminDb.collection("User")
+            .where("email", "==", email)
+            .limit(1)
+            .get();
+
+        if (userSnapshot.empty) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // Test password
-        const isValid = await bcrypt.compare(password, user.password);
+        const user = userSnapshot.docs[0].data();
 
         return NextResponse.json({
-            success: true,
-            passwordMatch: isValid,
+            message: 'User found',
             user: {
-                id: user.id,
+                id: userSnapshot.docs[0].id,
                 email: user.email,
                 name: user.name,
-                role: user.role,
-            },
+                role: user.role
+            }
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Test login error:', error);
-        return NextResponse.json({
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-        }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

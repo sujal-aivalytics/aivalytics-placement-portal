@@ -1,28 +1,29 @@
+import { adminDb } from "@/lib/firebase-config";
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-import React from 'react';
-import { prisma } from "@/lib/prisma";
-import { MockTestInstructions } from './instructions-client';
-import { notFound } from 'next/navigation';
-
-export default async function MockTestLandingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MockTestPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
     const { id } = await params;
-    const test = await prisma.test.findUnique({
-        where: { id },
-        include: {
-            questions: {
-                select: { id: true } // Just to count or verify existence
-            },
-            _count: {
-                select: { questions: true }
-            }
-        }
-    });
+    const session = await getServerSession(authOptions);
 
-    if (!test) {
-        notFound();
+    if (!session?.user) {
+        redirect(`/login?callbackUrl=/dashboard/mock-tests/${id}`);
     }
 
+    // Fetch Test
+    const doc = await adminDb.collection("Test").doc(id).get();
+    if (!doc.exists) notFound();
+    const test = { id: doc.id, ...doc.data() } as any;
+
     return (
-        <MockTestInstructions test={test} />
+        <div className="container mx-auto py-8">
+            <h1 className="text-3xl font-bold mb-6">{test.title}</h1>
+            {/* ... Render Mock Test start UI ... */}
+        </div>
     );
 }

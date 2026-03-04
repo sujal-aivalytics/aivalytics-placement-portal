@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 export async function POST(
     req: Request,
@@ -14,44 +15,66 @@ export async function POST(
             return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
         }
 
-        // Validate subtopic ownership (optional but good practice)
-        // For now, trust the ID.
-
-        // Batch process to avoid transaction timeouts
-        const BATCH_SIZE = 10;
         let successCount = 0;
+        let currentBatch = adminDb.batch();
+        let operationCount = 0;
+        const now = admin.firestore.Timestamp.now();
 
-        for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-            const batch = questions.slice(i, i + BATCH_SIZE);
+        for (const q of questions) {
+            const questionRef = adminDb.collection("Question").doc();
+            const questionData = {
+                id: questionRef.id,
+                testId: testId,
+                subtopicId: subtopicId,
+                text: q.text,
+                type: q.type || 'multiple-choice',
+                marks: parseInt(q.marks || q.points || '1'),
+                metadata: q.metadata || null,
+                order: successCount,
+                createdAt: now,
+                updatedAt: now
+            };
 
-            await prisma.$transaction(
-                batch.map((q: any) =>
-                    prisma.question.create({
-                        data: {
-                            testId: testId,
-                            subtopicId: subtopicId,
-                            text: q.text,
-                            type: q.type || 'multiple-choice',
-                            marks: q.marks || 1, // Default marks
-                            metadata: q.metadata,
-                            options: {
-                                create: q.options?.map((o: any) => ({
-                                    text: o.text,
-                                    isCorrect: o.isCorrect
-                                })) || []
-                            }
-                        }
-                    })
-                )
-            );
+            currentBatch.set(questionRef, questionData);
+            operationCount++;
 
-            successCount += batch.length;
+            if (q.options && Array.isArray(q.options)) {
+                for (const o of q.options) {
+                    const optRef = adminDb.collection("Option").doc();
+                    currentBatch.set(optRef, {
+                        id: optRef.id,
+                        questionId: questionRef.id,
+                        text: o.text,
+                        isCorrect: o.isCorrect,
+                        createdAt: now
+                    });
+                    operationCount++;
+
+                    if (operationCount >= 450) {
+                        await currentBatch.commit();
+                        currentBatch = adminDb.batch();
+                        operationCount = 0;
+                    }
+                }
+            }
+
+            successCount++;
+
+            if (operationCount >= 450) {
+                await currentBatch.commit();
+                currentBatch = adminDb.batch();
+                operationCount = 0;
+            }
+        }
+
+        if (operationCount > 0) {
+            await currentBatch.commit();
         }
 
         return NextResponse.json({ success: true, count: successCount });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Subtopic Bulk Import Error:", error);
-        return NextResponse.json({ error: "Failed to import questions to subtopic" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to import questions to subtopic", details: error.message }, { status: 500 });
     }
 }

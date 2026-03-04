@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 export async function POST(
     request: NextRequest,
@@ -17,42 +18,39 @@ export async function POST(
         const body = await request.json();
         const { answers, score, total, timeSpent, essayText, code, language, proctoringData } = body;
 
-
         // Fetch application
-        const application = await prisma.placementApplication.findUnique({
-            where: { id },
-            include: {
-                assessmentStages: true,
-                user: true,
-            },
-        });
-
-        if (!application) {
+        const applicationDoc = await adminDb.collection("PlacementApplication").doc(id).get();
+        if (!applicationDoc.exists) {
             return NextResponse.json({ error: 'Application not found' }, { status: 404 });
         }
 
+        const application = applicationDoc.data() as any;
+
         // Verify application belongs to user or user is admin
-        if (application.user.email !== session.user.email && session.user.role !== 'admin') {
+        const userSnapshot = await adminDb.collection("User").where("email", "==", session.user.email).limit(1).get();
+        const currentUser = userSnapshot.docs[0].data();
+
+        if (application.userId !== userSnapshot.docs[0].id && (session.user as any).role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         // Check if stage already completed
-        const existingStage = application.assessmentStages.find(
-            (stage: any) => stage.stageName === stageName
-        );
+        const stagesSnapshot = await adminDb.collection("AssessmentStage")
+            .where("applicationId", "==", id)
+            .where("stageName", "==", stageName)
+            .limit(1)
+            .get();
+
+        const existingStage = stagesSnapshot.empty ? null : { ...stagesSnapshot.docs[0].data(), id: stagesSnapshot.docs[0].id } as any;
 
         if (existingStage && existingStage.submittedAt) {
-            return NextResponse.json(
-                { error: 'Stage already completed' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Stage already completed' }, { status: 400 });
         }
 
-        // Calculate score on backend for security
+        // Calculate score on backend
         let calculatedScore = score;
         let calculatedTotal = total;
 
-        // Map stage to test topic for MCQ stages
         const stageTopicMap: Record<string, string> = {
             'foundation': 'Foundation',
             'advanced': 'Advanced',
@@ -61,49 +59,62 @@ export async function POST(
 
         const topic = stageTopicMap[stageName];
         if (topic) {
-            // Fetch test and questions to calculate score
-            const test = await prisma.test.findFirst({
-                where: {
-                    type: 'company',
-                    company: application.company,
-                    topic: topic,
-                },
-                include: {
-                    questions: {
-                        include: {
-                            options: true,
-                        },
-                    },
-                },
-            });
+            const testsSnapshot = await adminDb.collection("Test")
+                .where("type", "==", "company")
+                .where("company", "==", application.company)
+                .where("topic", "==", topic)
+                .limit(1)
+                .get();
 
-            if (test) {
-                calculatedTotal = test.questions.length;
+            if (!testsSnapshot.empty) {
+                const testId = testsSnapshot.docs[0].id;
+                const questionsSnapshot = await adminDb.collection("Question")
+                    .where("testId", "==", testId)
+                    .get();
+
+                calculatedTotal = questionsSnapshot.docs.length;
                 calculatedScore = 0;
 
-                test.questions.forEach((q: any) => {
-                    const userAnswerText = (answers as any)[q.id];
-                    const correctOption = q.options.find((o: any) => o.isCorrect);
+                await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+                    const qData = qDoc.data();
+                    const userAnswerText = (answers as any)[qDoc.id];
+
+                    const optionsSnapshot = await adminDb.collection("Option")
+                        .where("questionId", "==", qDoc.id)
+                        .where("isCorrect", "==", true)
+                        .limit(1)
+                        .get();
+
+                    const correctOption = optionsSnapshot.empty ? null : optionsSnapshot.docs[0].data();
 
                     if (userAnswerText && correctOption && userAnswerText === correctOption.text) {
                         calculatedScore++;
                     }
-                });
+                }));
             }
         }
 
-        // Calculate score and percentage
         const percentage = calculatedTotal > 0 ? (calculatedScore / calculatedTotal) * 100 : 0;
-
-        // Determine if passed based on company and stage
         const isPassed = calculatePassStatus(application.company, stageName, percentage, calculatedScore);
 
+        const batch = adminDb.batch();
+
         // Create or update assessment stage
-        const assessmentStage = await prisma.assessmentStage.upsert({
-            where: {
-                id: existingStage?.id || 'new',
-            },
-            create: {
+        let stageRef;
+        if (existingStage) {
+            stageRef = adminDb.collection("AssessmentStage").doc(existingStage.id);
+            batch.update(stageRef, {
+                score: calculatedScore,
+                total: calculatedTotal,
+                percentage,
+                isPassed,
+                timeSpent,
+                submittedAt: admin.firestore.Timestamp.now()
+            });
+        } else {
+            stageRef = adminDb.collection("AssessmentStage").doc();
+            batch.set(stageRef, {
+                id: stageRef.id,
                 applicationId: id,
                 stageName,
                 score: calculatedScore,
@@ -111,124 +122,99 @@ export async function POST(
                 percentage,
                 isPassed,
                 timeSpent,
-                submittedAt: new Date(),
-            },
-            update: {
-                score: calculatedScore,
-                total: calculatedTotal,
-                percentage,
-                isPassed,
-                timeSpent,
-                submittedAt: new Date(),
-            },
-        });
-
-        // Log proctoring violations if present
-        if (proctoringData?.violations?.length > 0) {
-            await Promise.all(
-                proctoringData.violations.map((v: any) =>
-                    prisma.monitoringEvent.create({
-                        data: {
-                            userId: application.userId,
-                            eventType: `violation_${v.type}`,
-                            violationType: v.type,
-                            details: JSON.stringify(v.metadata || {}),
-                            timestamp: new Date(v.timestamp),
-                            testType: `placement_${stageName}`,
-                        }
-                    })
-                )
-            );
-        }
-
-        // Store essay or code if provided
-        if (essayText && stageName === 'essay') {
-            // Store essay in a separate field or table if needed
-            await prisma.assessmentStage.update({
-                where: { id: assessmentStage.id },
-                data: {
-                    // You might want to add an essay field to the schema
-                    // For now, we'll store it in a JSON field if available
-                },
+                submittedAt: admin.firestore.Timestamp.now(),
+                createdAt: admin.firestore.Timestamp.now()
             });
         }
 
-        // Update application status and determine next stage
+        // Log violations
+        if (proctoringData?.violations?.length > 0) {
+            proctoringData.violations.forEach((v: any) => {
+                const eventRef = adminDb.collection("MonitoringEvent").doc();
+                batch.set(eventRef, {
+                    id: eventRef.id,
+                    userId: application.userId,
+                    eventType: `violation_${v.type}`,
+                    violationType: v.type,
+                    details: JSON.stringify(v.metadata || {}),
+                    timestamp: admin.firestore.Timestamp.fromDate(new Date(v.timestamp)),
+                    testType: `placement_${stageName}`
+                });
+            });
+        }
+
+        // Update application status
         const nextStage = determineNextStage(application.company, stageName, isPassed);
         const newStatus = isPassed ? nextStage : 'rejected';
 
-        await prisma.placementApplication.update({
-            where: { id },
-            data: {
-                status: newStatus,
-                currentStage: isPassed ? nextStage : stageName,
-                finalDecision: isPassed ? undefined : 'rejected',
-            },
+        batch.update(adminDb.collection("PlacementApplication").doc(id), {
+            status: newStatus,
+            currentStage: isPassed ? nextStage : stageName,
+            finalDecision: isPassed ? admin.firestore.FieldValue.delete() : 'rejected',
+            updatedAt: admin.firestore.Timestamp.now()
         });
 
-        // If all stages completed, assign track
+        // Check if all stages completed
         if (isPassed && isLastStage(application.company, nextStage)) {
-            const track = await assignTrack(application.company, application.assessmentStages);
-            await prisma.placementApplication.update({
-                where: { id },
-                data: {
-                    finalTrack: track,
-                    finalDecision: 'selected',
-                    status: 'completed',
-                },
+            // Re-fetch all stages for track assignment
+            const allStagesSnapshot = await adminDb.collection("AssessmentStage")
+                .where("applicationId", "==", id)
+                .get();
+            const allStagesData = allStagesSnapshot.docs.map(doc => doc.data() as any);
+
+            // Add current stage if not in snapshot yet
+            if (!allStagesData.find(s => s.stageName === stageName)) {
+                allStagesData.push({ stageName, percentage });
+            }
+
+            const track = await assignTrack(application.company, allStagesData);
+            batch.update(adminDb.collection("PlacementApplication").doc(id), {
+                finalTrack: track,
+                finalDecision: 'selected',
+                status: 'completed'
             });
 
+            await batch.commit();
             return NextResponse.json({
                 success: true,
                 isPassed,
                 nextStage: 'completed',
                 track,
-                message: `Congratulations! You have been selected for ${track} track.`,
+                message: `Congratulations! You have been selected for ${track} track.`
             });
         }
+
+        await batch.commit();
 
         return NextResponse.json({
             success: true,
             isPassed,
             nextStage: isPassed ? nextStage : null,
             percentage,
-            score,
-            total,
+            score: calculatedScore,
+            total: calculatedTotal
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error submitting stage:', error);
-        return NextResponse.json(
-            { error: 'Failed to submit stage assessment' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to submit stage assessment', details: error.message }, { status: 500 });
     }
 }
 
-function calculatePassStatus(
-    company: string,
-    stageName: string,
-    percentage: number,
-    score: number
-): boolean {
+function calculatePassStatus(company: string, stageName: string, percentage: number, score: number): boolean {
     if (company === 'TCS') {
         if (stageName === 'foundation') return percentage >= 60;
         if (stageName === 'advanced') return percentage >= 65;
-        if (stageName === 'coding') return score >= 2; // At least 2 out of 3 problems
+        if (stageName === 'coding') return score >= 2;
     } else if (company === 'Wipro') {
         if (stageName === 'aptitude') return percentage >= 65;
-        if (stageName === 'essay') return percentage >= 70; // Based on AI scoring
-        if (stageName === 'coding') return score >= 1; // At least 1 out of 2 problems
+        if (stageName === 'essay') return percentage >= 70;
+        if (stageName === 'coding') return score >= 1;
     }
     return false;
 }
 
-function determineNextStage(
-    company: string,
-    currentStage: string,
-    isPassed: boolean
-): string {
+function determineNextStage(company: string, currentStage: string, isPassed: boolean): string {
     if (!isPassed) return currentStage;
-
     if (company === 'TCS') {
         const stages = ['foundation', 'advanced', 'coding', 'interview', 'completed'];
         const currentIndex = stages.indexOf(currentStage);
@@ -238,26 +224,15 @@ function determineNextStage(
         const currentIndex = stages.indexOf(currentStage);
         return stages[currentIndex + 1] || 'completed';
     }
-
     return 'completed';
 }
 
 function isLastStage(company: string, stage: string): boolean {
-    if (company === 'TCS') {
-        return stage === 'interview' || stage === 'completed';
-    } else if (company === 'Wipro') {
-        return stage === 'interview' || stage === 'completed';
-    }
-    return false;
+    return stage === 'interview' || stage === 'completed';
 }
 
-async function assignTrack(
-    company: string,
-    stages: { stageName: string; percentage: number | null }[]
-): Promise<string> {
+async function assignTrack(company: string, stages: any[]): Promise<string> {
     if (company === 'TCS') {
-        // Digital track: Coding score >= 2.5/3 (83%+)
-        // Ninja track: Coding score >= 2/3 (67%+)
         const codingStage = stages.find((s: any) => s.stageName === 'coding');
         if (codingStage) {
             const codingPercentage = codingStage.percentage || 0;
@@ -266,15 +241,11 @@ async function assignTrack(
         }
         return 'Ninja';
     } else if (company === 'Wipro') {
-        // Turbo track: Overall average >= 80%
-        // Elite track: Overall average >= 70%
         const totalPercentage = stages.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0);
-        const avgPercentage = totalPercentage / stages.length;
-
+        const avgPercentage = totalPercentage / (stages.length || 1);
         if (avgPercentage >= 80) return 'Turbo';
         if (avgPercentage >= 70) return 'Elite';
         return 'Elite';
     }
-
     return 'Standard';
 }

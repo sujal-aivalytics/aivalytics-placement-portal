@@ -1,111 +1,87 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET(req: Request) {
     try {
-        const session = await getServerSession(authOptions);
+        const { searchParams } = new URL(req.url);
+        const testId = searchParams.get('testId');
+        const limit = parseInt(searchParams.get('limit') || '10');
 
-        if (!session?.user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        let query = adminDb.collection("Result").orderBy("score", "desc").limit(limit);
+
+        if (testId) {
+            query = adminDb.collection("Result")
+                .where("testId", "==", testId)
+                .orderBy("score", "desc")
+                .limit(limit);
         }
 
-        const { searchParams } = new URL(req.url);
-        const limit = parseInt(searchParams.get('limit') || '10');
-        const testId = searchParams.get('testId');
+        const resultsSnapshot = await query.get();
 
-        // Build where clause
-        const where = testId ? { testId } : {};
+        const leaderboard = await Promise.all(resultsSnapshot.docs.map(async (rDoc) => {
+            const rData = rDoc.data() as any;
 
-        // Get top performers
-        const topResults = await prisma.result.findMany({
-            where,
-            include: {
+            // Fetch User detail
+            const userDoc = await adminDb.collection("User").doc(rData.userId).get();
+            const userData = userDoc.data() as any;
+
+            // Fetch Test detail
+            const testDoc = await adminDb.collection("Test").doc(rData.testId).get();
+            const testData = testDoc.data() as any;
+
+            return {
+                id: rDoc.id,
+                score: rData.score,
+                percentage: rData.percentage,
+                createdAt: rData.createdAt,
                 user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        image: true,
-                    },
+                    name: userData?.name || 'Anonymous',
+                    image: userData?.image,
+                    college: userData?.college
                 },
                 test: {
-                    select: {
-                        id: true,
-                        title: true,
-                        company: true,
-                        topic: true,
-                    },
-                },
-            },
-            orderBy: [
-                { score: 'desc' },
-                { createdAt: 'asc' }, // Earlier completion time as tiebreaker
-            ],
-            take: limit,
-        });
-
-        // Calculate rankings and percentages
-        const leaderboard = topResults.map((result: any, index: number) => ({
-            rank: index + 1,
-            userId: result.user.id,
-            userName: result.user.name || 'Anonymous',
-            userEmail: result.user.email,
-            userImage: result.user.image,
-            testId: result.test.id,
-            testTitle: result.test.title,
-            testCompany: result.test.company,
-            testTopic: result.test.topic,
-            score: result.score,
-            total: result.total,
-            percentage: Math.round((result.score / result.total) * 100),
-            completedAt: result.createdAt,
+                    title: testData?.title || 'Deleted Test'
+                }
+            };
         }));
 
-        // Get current user's rank if they have taken tests
-        let userRank = null;
-        if (session.user.id) {
-            const userResults = await prisma.result.findMany({
-                where: {
-                    userId: session.user.id,
-                    ...where,
-                },
-                orderBy: { score: 'desc' },
-                take: 1,
-            });
+        // Get personal rank if logged in
+        const session = await getServerSession(authOptions);
+        let personalStats = null;
 
-            if (userResults.length > 0) {
-                const userBestScore = userResults[0].score;
-                const betterScores = await prisma.result.count({
-                    where: {
-                        ...where,
-                        OR: [
-                            { score: { gt: userBestScore } },
-                            {
-                                score: userBestScore,
-                                createdAt: { lt: userResults[0].createdAt },
-                            },
-                        ],
-                    },
-                });
-                userRank = betterScores + 1;
+        if (session?.user && testId) {
+            const userResultsSnapshot = await adminDb.collection("Result")
+                .where("testId", "==", testId)
+                .where("userId", "==", session.user.id)
+                .orderBy("score", "desc")
+                .limit(1)
+                .get();
+
+            if (!userResultsSnapshot.empty) {
+                const bestResult = userResultsSnapshot.docs[0].data();
+
+                // Count how many people have higher scores
+                const higherScoresSnapshot = await adminDb.collection("Result")
+                    .where("testId", "==", testId)
+                    .where("score", ">", bestResult.score)
+                    .get();
+
+                personalStats = {
+                    rank: higherScoresSnapshot.size + 1,
+                    bestScore: bestResult.score,
+                    percentage: bestResult.percentage
+                };
             }
         }
 
         return NextResponse.json({
             leaderboard,
-            userRank,
-            totalEntries: leaderboard.length,
+            personalStats
         });
-    } catch (error) {
-        console.error('Leaderboard error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.error('Leaderboard fetch error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

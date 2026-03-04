@@ -1,103 +1,72 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-// GET user profile
+// GET - Fetch user profile
 export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
         if (!session?.user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                bio: true,
-                phone: true,
-                address: true,
-                image: true,
-                emailVerified: true,
-            },
+        const userDoc = await adminDb.collection("User").doc(session.user.id).get();
+        if (!userDoc.exists) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const userData = userDoc.data() as any;
+
+        // Fetch optional counts or related data
+        const resultsSnapshot = await adminDb.collection("Result")
+            .where("userId", "==", session.user.id)
+            .get();
+
+        return NextResponse.json({
+            ...userData,
+            id: userDoc.id,
+            _count: {
+                results: resultsSnapshot.size
+            }
         });
-
-        if (!user) {
-            return NextResponse.json(
-                { error: 'User not found' },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ user });
-    } catch (error) {
-        console.error('Profile fetch error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.error('Error fetching profile:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-// PUT - Update user profile
-export async function PUT(req: Request) {
+// PATCH - Update user profile
+export async function PATCH(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
         if (!session?.user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { name, bio, phone, address } = await req.json();
+        const body = await req.json();
+        const { name, image, phone, college, department, yearOfGraduation } = body;
 
-        // Validation
-        if (name && (typeof name !== 'string' || name.trim().length < 2)) {
-            return NextResponse.json({ error: 'Name must be at least 2 characters long' }, { status: 400 });
-        }
-        if (phone && (typeof phone !== 'string' || !/^\d{10}$/.test(phone))) {
-            return NextResponse.json({ error: 'Phone number must be exactly 10 digits' }, { status: 400 });
-        }
+        const now = admin.firestore.Timestamp.now();
+        const updateData: any = {
+            updatedAt: now
+        };
 
-        const user = await prisma.user.update({
-            where: { id: session.user.id },
-            data: {
-                name: name || undefined,
-                bio: bio || undefined,
-                phone: phone || undefined,
-                address: address || undefined,
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                bio: true,
-                phone: true,
-                address: true,
-                image: true,
-            },
-        });
+        if (name !== undefined) updateData.name = name;
+        if (image !== undefined) updateData.image = image;
+        if (phone !== undefined) updateData.phone = phone;
+        if (college !== undefined) updateData.college = college;
+        if (department !== undefined) updateData.department = department;
+        if (yearOfGraduation !== undefined) updateData.yearOfGraduation = yearOfGraduation;
 
-        return NextResponse.json({
-            message: 'Profile updated successfully',
-            user,
-        });
-    } catch (error) {
+        await adminDb.collection("User").doc(session.user.id).update(updateData);
+
+        return NextResponse.json({ message: 'Profile updated successfully' });
+    } catch (error: any) {
         console.error('Profile update error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

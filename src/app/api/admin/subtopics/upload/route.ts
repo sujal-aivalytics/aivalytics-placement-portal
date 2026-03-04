@@ -1,281 +1,108 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-interface CSVRow {
-    question: string;
-    option_1: string;
-    option_2: string;
-    option_3: string;
-    option_4: string;
-    correct_option: string;
-    explanation?: string;
-    difficulty?: string;
-    category?: string;
-    type?: string;
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
+
         if (!session?.user || session.user.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const formData = await request.formData();
-        const file = formData.get('file') as File;
-        const testId = formData.get('testId') as string;
-        const subtopicId = formData.get('subtopicId') as string;
+        const body = await req.json();
+        const { testId, subtopicName, questions } = body;
 
-        if (!file || !testId || !subtopicId) {
-            return NextResponse.json(
-                { error: 'File, testId, and subtopicId are required' },
-                { status: 400 }
-            );
+        if (!testId || !subtopicName || !Array.isArray(questions)) {
+            return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
         }
 
-        // Verify test exists
-        const test = await prisma.test.findUnique({
-            where: { id: testId },
-        });
+        // 1. Find or Create Subtopic
+        const subtopicsSnapshot = await adminDb.collection("Subtopic")
+            .where("testId", "==", testId)
+            .where("name", "==", subtopicName)
+            .limit(1)
+            .get();
 
-        if (!test) {
-            return NextResponse.json(
-                { error: 'Invalid test ID' },
-                { status: 400 }
-            );
-        }
+        let subtopicId;
+        const now = admin.firestore.Timestamp.now();
 
-        // Verify subtopic exists and belongs to the test
-        const subtopic = await prisma.subtopic.findFirst({
-            where: {
+        if (subtopicsSnapshot.empty) {
+            const subtopicRef = adminDb.collection("Subtopic").doc();
+            subtopicId = subtopicRef.id;
+            await subtopicRef.set({
                 id: subtopicId,
-                testId: testId,
-            },
-        });
-
-        if (!subtopic) {
-            return NextResponse.json(
-                { error: 'Invalid subtopic ID or subtopic does not belong to this test' },
-                { status: 400 }
-            );
-        }
-
-        // Read CSV file
-        let text = await file.text();
-        // Remove BOM (Byte Order Mark) if present (common in Excel CSVs)
-        if (text.charCodeAt(0) === 0xFEFF) {
-            text = text.slice(1);
-        }
-
-        const lines = text.split(/\r\n|\n|\r/).filter((line: string) => line.trim());
-
-        if (lines.length < 2) {
-            return NextResponse.json(
-                { error: 'CSV file is empty or invalid' },
-                { status: 400 }
-            );
-        }
-
-        // Parse header
-        const rawHeaders = parseCSVLine(lines[0]).map((h: string) => h.trim().toLowerCase().replace(/^"|"$/g, ''));
-        console.log('Parsed Headers:', rawHeaders);
-
-        // Define mapping for flexible header names
-        const headerMapping: Record<string, string> = {
-            'id': 'id',
-            'question': 'question',
-            'qs': 'question',
-            'statement': 'question',
-            'text': 'question',
-            'option_1': 'option_1',
-            'option1': 'option_1',
-            'a': 'option_1',
-            'option_2': 'option_2',
-            'option2': 'option_2',
-            'b': 'option_2',
-            'option_3': 'option_3',
-            'option3': 'option_3',
-            'c': 'option_3',
-            'option_4': 'option_4',
-            'option4': 'option_4',
-            'd': 'option_4',
-            'correct_option': 'correct_option',
-            'correct': 'correct_option',
-            'answer': 'correct_option',
-            'ans': 'correct_option',
-            'correctoption': 'correct_option',
-            'correct_index': 'correct_option',
-            'explanation': 'explanation',
-            'difficulty': 'difficulty',
-            'category': 'category',
-            'type': 'type'
-        };
-
-        const headers = rawHeaders.map((h: string) => headerMapping[h] || h);
-
-        // Validate required headers
-        const requiredHeaders = ['question', 'option_1', 'option_2', 'option_3', 'option_4', 'correct_option'];
-        const missingHeaders = requiredHeaders.filter((h: string) => !headers.includes(h));
-
-        if (missingHeaders.length > 0) {
-            return NextResponse.json(
-                { error: `Missing required headers: ${missingHeaders.join(', ')}. Found: ${headers.join(', ')}` },
-                { status: 400 }
-            );
-        }
-
-        const questionsCreated: Array<{ id: string; text: string }> = [];
-        const errors: string[] = [];
-
-        // Get the current max order for this test
-        const maxOrderQuestion = await prisma.question.findFirst({
-            where: { testId },
-            orderBy: { order: 'desc' },
-            select: { order: true },
-        });
-
-        let currentOrder = (maxOrderQuestion?.order ?? -1) + 1;
-
-        // Process each row
-        for (let i = 1; i < lines.length; i++) {
-            try {
-                const values = parseCSVLine(lines[i]);
-                if (values.length === 0) continue;
-
-                // Stop if row is suspiciously short (failed parse or empty line)
-                if (values.length < 2) continue;
-
-                const row: Record<string, string> = {};
-
-                // Map values to headers safely
-                headers.forEach((header: string, index: number) => {
-                    if (index < values.length) {
-                        row[header] = values[index]?.trim() || '';
-                    }
-                });
-
-                // Validate required fields
-                if (!row.question || !row.correct_option) {
-                    errors.push(`Row ${i + 1}: Missing question or correct_option`);
-                    continue;
-                }
-
-                // Determine question type (default to multiple-choice if not specified)
-                const questionType = row.type || 'multiple-choice';
-
-                if (questionType === 'multiple-choice') {
-                    // Convert correct_option (A, B, C, D or 1, 2, 3, 4) to index
-                    let correctIndex = -1;
-                    const co = row.correct_option.toUpperCase();
-                    if (co === 'A' || co === '1') correctIndex = 1;
-                    else if (co === 'B' || co === '2') correctIndex = 2;
-                    else if (co === 'C' || co === '3') correctIndex = 3;
-                    else if (co === 'D' || co === '4') correctIndex = 4;
-                    else {
-                        correctIndex = parseInt(row.correct_option);
-                    }
-
-                    if (isNaN(correctIndex) || correctIndex < 1 || correctIndex > 4) {
-                        errors.push(`Row ${i + 1}: Invalid correct_option '${row.correct_option}'. Use A, B, C, D or 1-4`);
-                        continue;
-                    }
-
-                    // Store explanation in metadata if it exists
-                    const metadata = row.explanation ? JSON.stringify({ explanation: row.explanation }) : null;
-
-                    const question = await prisma.question.create({
-                        data: {
-                            testId,
-                            subtopicId, // Assign to subtopic
-                            text: row.question,
-                            type: 'multiple-choice',
-                            category: row.category || 'General',
-                            difficulty: row.difficulty || 'Medium',
-                            order: currentOrder,
-                            metadata,
-                            options: {
-                                create: [
-                                    { text: row.option_1, isCorrect: correctIndex === 1 },
-                                    { text: row.option_2, isCorrect: correctIndex === 2 },
-                                    { text: row.option_3, isCorrect: correctIndex === 3 },
-                                    { text: row.option_4, isCorrect: correctIndex === 4 },
-                                ],
-                            },
-                        },
-                        include: { options: true },
-                    });
-
-                    questionsCreated.push(question);
-                    currentOrder++;
-                } else {
-                    errors.push(`Row ${i + 1}: Unsupported question type '${questionType}' in this upload format`);
-                }
-            } catch (error) {
-                const message = error instanceof Error ? error.message : 'Unknown error';
-                errors.push(`Row ${i + 1}: ${message}`);
-            }
-        }
-
-        // Update subtopic's totalQuestions count
-        await prisma.subtopic.update({
-            where: { id: subtopicId },
-            data: {
-                totalQuestions: {
-                    increment: questionsCreated.length,
-                },
-            },
-        });
-
-        // If nothing created and we have errors, treat as failure
-        if (questionsCreated.length === 0 && errors.length > 0) {
-            return NextResponse.json({
-                error: `Upload failed. 0 questions created. First error: ${errors[0]}`,
-                errors
-            }, { status: 400 });
-        }
-
-        return NextResponse.json({
-            message: `Successfully uploaded ${questionsCreated.length} questions to subtopic "${subtopic.name}"`,
-            created: questionsCreated.length,
-            errors: errors.length > 0 ? errors : undefined,
-        });
-    } catch (error) {
-        console.error('Error uploading questions:', error);
-        return NextResponse.json(
-            { error: 'Failed to upload questions' },
-            { status: 500 }
-        );
-    }
-}
-
-// Helper function to parse CSV line (handles quoted values and escaped quotes)
-function parseCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-
-        if (char === '"') {
-            // Check for escaped quote (double double quote)
-            if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-                current += '"';
-                i++; // Skip the next quote
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (char === ',' && !inQuotes) {
-            result.push(current);
-            current = '';
+                testId,
+                name: subtopicName,
+                order: 0, // Default order
+                createdAt: now,
+                updatedAt: now
+            });
         } else {
-            current += char;
+            subtopicId = subtopicsSnapshot.docs[0].id;
         }
-    }
 
-    result.push(current);
-    // Use a clean trim
-    return result.map((v: string) => v.trim());
+        // 2. Upload Questions in Batches
+        let successCount = 0;
+        let currentBatch = adminDb.batch();
+        let operationCount = 0;
+
+        for (const q of questions) {
+            const questionRef = adminDb.collection("Question").doc();
+
+            const questionData = {
+                id: questionRef.id,
+                testId,
+                subtopicId,
+                text: q.text,
+                type: q.type || 'multiple-choice',
+                marks: parseInt(q.marks || '1'),
+                metadata: q.metadata || null,
+                createdAt: now,
+                updatedAt: now
+            };
+
+            currentBatch.set(questionRef, questionData);
+            operationCount++;
+
+            if (q.options && Array.isArray(q.options)) {
+                for (const o of q.options) {
+                    const optRef = adminDb.collection("Option").doc();
+                    currentBatch.set(optRef, {
+                        id: optRef.id,
+                        questionId: questionRef.id,
+                        text: o.text,
+                        isCorrect: o.isCorrect,
+                        createdAt: now
+                    });
+                    operationCount++;
+
+                    if (operationCount >= 450) {
+                        await currentBatch.commit();
+                        currentBatch = adminDb.batch();
+                        operationCount = 0;
+                    }
+                }
+            }
+
+            successCount++;
+
+            if (operationCount >= 450) {
+                await currentBatch.commit();
+                currentBatch = adminDb.batch();
+                operationCount = 0;
+            }
+        }
+
+        if (operationCount > 0) {
+            await currentBatch.commit();
+        }
+
+        return NextResponse.json({ message: `Successfully uploaded ${successCount} questions to ${subtopicName}` });
+    } catch (error: any) {
+        console.error('Subtopic upload error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
+    }
 }

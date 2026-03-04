@@ -1,61 +1,65 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 export async function POST(
-    request: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string; roundId: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'admin') {
+
+        if (!session?.user || session.user.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { roundId } = await params;
-        const body = await request.json();
+        const { id: driveId, roundId } = await params;
+        const body = await req.json();
         const { questions } = body;
 
-        if (!questions || !Array.isArray(questions)) {
-            return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
+        if (!Array.isArray(questions) || questions.length === 0) {
+            return NextResponse.json({ error: 'Questions array is required' }, { status: 400 });
         }
 
-        // Transform and prepare data
-        const questionsToCreate = questions.map((q: any) => {
-            let codingMetadata = q.codingMetadata;
-            if (q.type === 'coding' && !codingMetadata && q.metadata) {
-                try {
-                    codingMetadata = typeof q.metadata === 'string' ? JSON.parse(q.metadata) : q.metadata;
-                } catch (e) {
-                    console.error('Error parsing metadata for question:', q.text);
-                }
-            }
+        let successCount = 0;
+        let currentBatch = adminDb.batch();
+        let operationCount = 0;
+        const now = admin.firestore.Timestamp.now();
 
-            const points = parseInt(q.marks || q.points || '1');
-            return {
+        for (const q of questions) {
+            const questionRef = adminDb.collection("MockQuestion").doc();
+
+            const questionData = {
+                id: questionRef.id,
                 roundId,
+                driveId,
                 text: q.text,
-                type: q.type,
-                points: isNaN(points) ? 1 : points,
-                options: q.options || [],
-                codingMetadata: codingMetadata || undefined
+                type: q.type || 'multiple-choice',
+                metadata: typeof q.metadata === 'object' ? JSON.stringify(q.metadata) : (q.metadata || null),
+                createdAt: now,
+                updatedAt: now
             };
-        });
 
-        // Use transaction to ensure all or nothing? Or createMany?
-        // SQLite doesn't support createMany with relations, but we are on Postgres usually.
-        // However, standard prisma createMany is fine here as we don't have nested relations to create,
-        // just JSON fields.
+            currentBatch.set(questionRef, questionData);
+            operationCount++;
 
-        // Actually, createMany is supported for Postgres.
-        await prisma.mockQuestion.createMany({
-            data: questionsToCreate
-        });
+            if (operationCount >= 450) {
+                await currentBatch.commit();
+                currentBatch = adminDb.batch();
+                operationCount = 0;
+            }
+            successCount++;
+        }
 
-        return NextResponse.json({ message: `Successfully added ${questionsToCreate.length} questions` });
-    } catch (error) {
-        console.error('Error bulk uploading questions:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        if (operationCount > 0) {
+            await currentBatch.commit();
+        }
+
+        return NextResponse.json({ message: `Successfully uploaded ${successCount} questions` });
+    } catch (error: any) {
+        console.error('Bulk upload error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

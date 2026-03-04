@@ -1,8 +1,9 @@
 // src/app/api/problems/submit/route.ts
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { adminDb } from "@/lib/firebase-config";
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { problemId, userCode, language, status } = body; 
+    const { problemId, userCode, language, status } = body;
 
     if (!problemId || !userCode || !language) {
       return NextResponse.json(
@@ -22,26 +23,31 @@ export async function POST(req: Request) {
       );
     }
 
-    await prisma.submissions.upsert({
-      where: {
-        userId_problemId_language: {
-          userId: session.user.id,
-          problemId: Number(problemId),
-          language,
-        },
-      },
-      update: {
-        code: userCode,
-        status: status || "Pending", 
-      },
-      create: {
-        userId: session.user.id,
-        problemId: Number(problemId),
-        language,
-        code: userCode,
-        status: status || "Pending", 
-      },
-    });
+    // Since Firebase doesn't have a direct equivalent to a 3-field composite unique key for upsert easily,
+    // we query first or use a deterministic doc ID.
+    // Deterministic ID: userId_problemId_language (slugified/joined)
+    const submissionId = `${session.user.id}_${problemId}_${language}`;
+    const submissionRef = adminDb.collection("Submissions").doc(submissionId);
+
+    const submissionData = {
+      userId: session.user.id,
+      problemId: problemId, // Keep as string or convert if needed, Prisma used Number(problemId)
+      language,
+      code: userCode,
+      status: status || "Pending",
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    const doc = await submissionRef.get();
+    if (doc.exists) {
+      await submissionRef.update(submissionData);
+    } else {
+      await submissionRef.set({
+        ...submissionData,
+        id: submissionId,
+        createdAt: admin.firestore.Timestamp.now()
+      });
+    }
 
     return NextResponse.json(
       { message: "Code submitted successfully" },

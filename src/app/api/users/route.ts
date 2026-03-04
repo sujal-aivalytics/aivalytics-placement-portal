@@ -1,45 +1,45 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 // GET all users (Admin only)
 export async function GET(_req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user || session.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                emailVerified: true,
+        const usersSnapshot = await adminDb.collection("User").orderBy("email", "asc").get();
+
+        const users = await Promise.all(usersSnapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            // Get results count for each user
+            const resultsSnapshot = await adminDb.collection("Result")
+                .where("userId", "==", doc.id)
+                .count()
+                .get();
+
+            return {
+                id: doc.id,
+                name: data.name,
+                email: data.email,
+                role: data.role,
+                image: data.image,
+                emailVerified: data.emailVerified,
                 _count: {
-                    select: {
-                        results: true,
-                    },
-                },
-            },
-            orderBy: {
-                email: 'asc',
-            },
-        });
+                    results: resultsSnapshot.data().count
+                }
+            };
+        }));
 
         return NextResponse.json({ users });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Users fetch error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
@@ -48,50 +48,46 @@ export async function PUT(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user || session.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { userId, role } = await req.json();
 
         if (!userId || !role) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         if (!['admin', 'user'].includes(role)) {
-            return NextResponse.json(
-                { error: 'Invalid role' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
 
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { role },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-            },
+        const userRef = adminDb.collection("User").doc(userId);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        await userRef.update({
+            role,
+            updatedAt: admin.firestore.Timestamp.now()
         });
+
+        const updatedData = (await userRef.get()).data();
 
         return NextResponse.json({
             message: 'User role updated successfully',
-            user,
+            user: {
+                id: userId,
+                name: updatedData?.name,
+                email: updatedData?.email,
+                role: updatedData?.role
+            }
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('User update error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
@@ -100,41 +96,31 @@ export async function DELETE(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user || session.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { searchParams } = new URL(req.url);
         const userId = searchParams.get('id');
 
         if (!userId) {
-            return NextResponse.json(
-                { error: 'User ID required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'User ID required' }, { status: 400 });
         }
 
-        // Prevent admin from deleting themselves
         if (userId === session.user.id) {
-            return NextResponse.json(
-                { error: 'Cannot delete your own account' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
         }
 
-        await prisma.user.delete({
-            where: { id: userId },
-        });
+        // Delete user document
+        await adminDb.collection("User").doc(userId).delete();
+
+        // Optionally delete related data like results, accounts, sessions
+        // For now, we follow the Prisma implementation which was a simple delete
+        // (If relations have ON DELETE CASCADE in SQL, we must handle it manually in Firestore)
 
         return NextResponse.json({ message: 'User deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('User deletion error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

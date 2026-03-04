@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
 // GET questions for a subtopic
 export async function GET(
@@ -12,46 +10,44 @@ export async function GET(
         const { id: testId, subtopicId } = await params;
 
         // Verify subtopic belongs to test
-        const subtopic = await prisma.subtopic.findFirst({
-            where: {
-                id: subtopicId,
-                testId,
-            },
-        });
-
-        if (!subtopic) {
-            return NextResponse.json(
-                { error: 'Subtopic not found' },
-                { status: 404 }
-            );
+        const subtopicDoc = await adminDb.collection("Subtopic").doc(subtopicId).get();
+        if (!subtopicDoc.exists || subtopicDoc.data()?.testId !== testId) {
+            return NextResponse.json({ error: 'Subtopic not found' }, { status: 404 });
         }
 
+        const subtopic = subtopicDoc.data() as any;
+
         // Get questions for this subtopic
-        const questions = await prisma.question.findMany({
-            where: {
-                subtopicId,
-            },
-            include: {
-                options: true,
-            },
-            orderBy: {
-                order: 'asc',
-            },
-        });
+        const questionsSnapshot = await adminDb.collection("Question")
+            .where("subtopicId", "==", subtopicId)
+            .orderBy("order", "asc")
+            .get();
+
+        const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+            const qData = qDoc.data() as any;
+
+            // Join Options
+            const optionsSnapshot = await adminDb.collection("Option")
+                .where("questionId", "==", qDoc.id)
+                .get();
+
+            return {
+                id: qDoc.id,
+                ...qData,
+                options: optionsSnapshot.docs.map(oDoc => ({ id: oDoc.id, ...oDoc.data() }))
+            };
+        }));
 
         return NextResponse.json({
             questions,
             subtopic: {
-                id: subtopic.id,
+                id: subtopicId,
                 name: subtopic.name,
                 description: subtopic.description,
             }
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Subtopic questions fetch error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check if user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // NextAuth.js User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // NextAuth.js Accounts (for social login linking)
+    match /accounts/{accountId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+    }
+
+    // NextAuth.js Sessions
+    match /sessions/{sessionId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+    }
+
+    // Default rule: Allow read/write if authenticated (for rapid development)
+    // WARNING: For production, you should refine these for each collection.
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

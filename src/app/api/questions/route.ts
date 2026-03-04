@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 // POST: Create a new question
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== 'admin') {
+        if (!session?.user || (session.user as any).role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -18,32 +19,48 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const question = await prisma.question.create({
-            data: {
-                testId,
-                text,
-                type: type || 'multiple-choice',
-                category,
-                difficulty,
-                metadata: metadata ? JSON.stringify(metadata) : undefined,
-                options: {
-                    create: options?.map((opt: any) => ({
-                        text: opt.text,
-                        isCorrect: opt.isCorrect || false
-                    }))
-                }
-            },
-            include: {
-                options: true
-            }
-        });
+        const batch = adminDb.batch();
+        const questionRef = adminDb.collection("Question").doc();
 
-        // Update subtopic count if needed (optional logic, but good for consistency)
+        const questionData = {
+            id: questionRef.id,
+            testId,
+            text,
+            type: type || 'multiple-choice',
+            category: category || null,
+            difficulty: difficulty || null,
+            metadata: metadata ? JSON.stringify(metadata) : null,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+        };
 
-        return NextResponse.json({ message: 'Question created', question }, { status: 201 });
-    } catch (error) {
+        batch.set(questionRef, questionData);
+
+        if (options && Array.isArray(options)) {
+            options.forEach((opt: any) => {
+                const optRef = adminDb.collection("Option").doc();
+                batch.set(optRef, {
+                    id: optRef.id,
+                    questionId: questionRef.id,
+                    text: opt.text,
+                    isCorrect: opt.isCorrect || false
+                });
+            });
+        }
+
+        await batch.commit();
+
+        // Fetch options to return
+        const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", questionRef.id).get();
+        const freshOptions = optionsSnapshot.docs.map(doc => doc.data());
+
+        return NextResponse.json({
+            message: 'Question created',
+            question: { ...questionData, options: freshOptions }
+        }, { status: 201 });
+    } catch (error: any) {
         console.error('Create Question Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }
 
@@ -51,7 +68,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== 'admin') {
+        if (!session?.user || (session.user as any).role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -62,14 +79,21 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'Question ID required' }, { status: 400 });
         }
 
-        await prisma.question.delete({
-            where: { id }
-        });
+        const batch = adminDb.batch();
+
+        // Delete options first
+        const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+        optionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+        // Delete question
+        batch.delete(adminDb.collection("Question").doc(id));
+
+        await batch.commit();
 
         return NextResponse.json({ message: 'Question deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Delete Question Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }
 
@@ -77,7 +101,7 @@ export async function DELETE(req: Request) {
 export async function PUT(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== 'admin') {
+        if (!session?.user || (session.user as any).role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -88,49 +112,51 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Transaction to ensure options are updated atomically
-        const question = await prisma.$transaction(async (tx: any) => {
-            // 1. Update basic question details
-            const updatedQuestion = await tx.question.update({
-                where: { id },
-                data: {
-                    text,
-                    type,
-                    category,
-                    difficulty,
-                    metadata: metadata ? JSON.stringify(metadata) : undefined, // Handle empty string/null
-                },
+        const batch = adminDb.batch();
+        const questionRef = adminDb.collection("Question").doc(id);
+
+        batch.update(questionRef, {
+            text,
+            type: type || 'multiple-choice',
+            category: category || null,
+            difficulty: difficulty || null,
+            metadata: metadata ? JSON.stringify(metadata) : null,
+            updatedAt: admin.firestore.Timestamp.now()
+        });
+
+        if (options && Array.isArray(options)) {
+            // Delete existing options
+            const existingOptionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+            existingOptionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+            // Create new options
+            options.forEach((opt: any) => {
+                const optRef = adminDb.collection("Option").doc();
+                batch.set(optRef, {
+                    id: optRef.id,
+                    questionId: id,
+                    text: opt.text,
+                    isCorrect: opt.isCorrect || false
+                });
             });
+        }
 
-            // 2. Handle options if provided
-            if (options && Array.isArray(options)) {
-                // Delete existing options
-                await tx.option.deleteMany({
-                    where: { questionId: id }
-                });
+        await batch.commit();
 
-                // Create new options
-                await tx.option.createMany({
-                    data: options.map((opt: any) => ({
-                        questionId: id,
-                        text: opt.text,
-                        isCorrect: opt.isCorrect || false
-                    }))
-                });
+        // Fetch fresh data
+        const freshQuestionDoc = await questionRef.get();
+        const freshOptionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+
+        return NextResponse.json({
+            message: 'Question updated',
+            question: {
+                ...freshQuestionDoc.data(),
+                id: freshQuestionDoc.id,
+                options: freshOptionsSnapshot.docs.map(doc => doc.data())
             }
-
-            return updatedQuestion;
         });
-
-        // Fetch fresh data to return
-        const freshQuestion = await prisma.question.findUnique({
-            where: { id },
-            include: { options: true }
-        });
-
-        return NextResponse.json({ message: 'Question updated', question: freshQuestion });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Update Question Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }

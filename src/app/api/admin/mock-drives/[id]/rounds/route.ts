@@ -1,47 +1,54 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { MockRoundType } from '@prisma/client';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// POST - Create a new round for a mock drive
+export async function POST(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        if (!session?.user || session.user.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const { id: driveId } = await params;
         const body = await req.json();
-        const { title, type, description, durationMinutes } = body;
+        const { title, type } = body;
 
-        if (!title || !type || !durationMinutes) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!title || !type) {
+            return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
         }
 
-        // Validate type against enum
-        if (!Object.values(MockRoundType).includes(type)) {
-            return NextResponse.json({ error: 'Invalid round type' }, { status: 400 });
-        }
+        // Determine round number
+        const roundsSnapshot = await adminDb.collection("MockRound")
+            .where("driveId", "==", driveId)
+            .get();
 
-        // Get current round count to set roundNumber
-        const roundsCount = await prisma.mockRound.count({
-            where: { driveId }
-        });
+        const roundNumber = roundsSnapshot.size + 1;
 
-        const round = await prisma.mockRound.create({
-            data: {
-                driveId,
-                title,
-                type: type as MockRoundType,
-                description: description || '',
-                durationMinutes: parseInt(durationMinutes),
-                roundNumber: roundsCount + 1,
-                metadata: {}
-            }
-        });
+        const roundRef = adminDb.collection("MockRound").doc();
+        const now = admin.firestore.Timestamp.now();
 
-        return NextResponse.json({ round }, { status: 201 });
-    } catch (error) {
-        console.error('Create round error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const roundData = {
+            id: roundRef.id,
+            driveId,
+            title,
+            type, // 'mcq', 'interview', 'coding'
+            roundNumber,
+            createdAt: now,
+            updatedAt: now
+        };
+
+        await roundRef.set(roundData);
+
+        return NextResponse.json(roundData, { status: 201 });
+    } catch (error: any) {
+        console.error('Round creation error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

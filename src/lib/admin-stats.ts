@@ -1,34 +1,57 @@
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-config";
 
 export async function getDashboardStats() {
     try {
-        const totalStudents = await prisma.user.count({ where: { role: "user" } });
-        const totalClasses = await prisma.test.count();
-        const coursesInProgress = await prisma.placementApplication.count({
-            where: { status: { notIn: ["completed", "rejected", "withdrawn"] } },
+        const [
+            totalStudentsSnapshot,
+            totalClassesSnapshot,
+            coursesInProgressSnapshot,
+            coursesCompletedSnapshot,
+            recentAppsSnapshot,
+            recentUsersSnapshot,
+            statusDistSnapshot
+        ] = await Promise.all([
+            adminDb.collection("User").where("role", "==", "user").count().get(),
+            adminDb.collection("Test").count().get(),
+            adminDb.collection("PlacementApplication").where("status", "not-in", ["completed", "rejected", "withdrawn"]).count().get(),
+            adminDb.collection("PlacementApplication").where("status", "==", "completed").count().get(),
+            adminDb.collection("PlacementApplication").orderBy("createdAt", "desc").limit(5).get(),
+            adminDb.collection("User").orderBy("createdAt", "desc").limit(3).get(),
+            adminDb.collection("PlacementApplication").select("status").get()
+        ]);
+
+        const totalStudents = totalStudentsSnapshot.data().count;
+        const totalClasses = totalClassesSnapshot.data().count;
+        const coursesInProgress = coursesInProgressSnapshot.data().count;
+        const coursesCompleted = coursesCompletedSnapshot.data().count;
+
+        // Manual grouping for statusDistribution since Firestore doesn't support groupBy yet in Node SDK directly like Prisma
+        const statusMap: Record<string, number> = {};
+        statusDistSnapshot.docs.forEach(doc => {
+            const status = doc.get("status");
+            statusMap[status] = (statusMap[status] || 0) + 1;
         });
-        const coursesCompleted = await prisma.placementApplication.count({
-            where: { status: "completed" },
-        });
-        const statusDistribution = await prisma.placementApplication.groupBy({
-            by: ["status"],
-            _count: { status: true },
+        const statusDistribution = Object.entries(statusMap).map(([status, count]) => ({
+            status,
+            _count: { status: count }
+        }));
+
+        const recentApplications = await Promise.all(recentAppsSnapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            const userDoc = await adminDb.collection("User").doc(data.userId).get();
+            const userData = userDoc.data();
+            return {
+                ...data,
+                id: doc.id,
+                user: userData ? { name: userData.name, image: userData.image, email: userData.email } : null
+            };
+        }));
+
+        const recentUsers = recentUsersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { name: data.name, email: data.email, role: data.role };
         });
 
-        const recentApplications = await prisma.placementApplication.findMany({
-            take: 5,
-            orderBy: { createdAt: "desc" },
-            include: { user: { select: { name: true, image: true, email: true } } },
-        });
-
-        const recentUsers = await prisma.user.findMany({
-            take: 3,
-            orderBy: { id: "desc" }, // using id as proxy for time if createdAt not available, or just take random
-            select: { name: true, email: true, role: true }
-        });
-
-        // Mocking activities for now since we might not have a dedicated activity log
-        // In a real app, you'd query an AuditLog or Notification table
         const activities = [
             ...recentUsers.map((u: any) => ({
                 id: u.email,

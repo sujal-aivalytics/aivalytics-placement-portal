@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as admin from 'firebase-admin';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -14,46 +15,43 @@ export async function POST(
         const session = await getServerSession(authOptions);
 
         if (!session?.user?.id) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id: testId } = await params;
         const { answers } = await req.json();
 
-        // Fetch test with questions
-        const test = await prisma.test.findUnique({
-            where: { id: testId },
-            include: {
-                questions: {
-                    include: {
-                        options: true,
-                    },
-                },
-            },
-        });
-
-        if (!test) {
-            return NextResponse.json(
-                { error: 'Test not found' },
-                { status: 404 }
-            );
+        // Fetch test
+        const testDoc = await adminDb.collection("Test").doc(testId).get();
+        if (!testDoc.exists) {
+            return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
 
-        // Calculate score
-        let score = 0;
-        const total = test.questions.length;
+        const testData = testDoc.data() as any;
 
-        test.questions.forEach((question) => {
-            const userAnswer = answers[question.id];
-            const correctOption = question.options.find((opt) => opt.isCorrect);
+        // Fetch questions and options
+        const questionsSnapshot = await adminDb.collection("Question")
+            .where("testId", "==", testId)
+            .get();
+
+        let score = 0;
+        const total = questionsSnapshot.docs.length;
+
+        await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+            const userAnswer = answers[qDoc.id];
+
+            const optionsSnapshot = await adminDb.collection("Option")
+                .where("questionId", "==", qDoc.id)
+                .where("isCorrect", "==", true)
+                .limit(1)
+                .get();
+
+            const correctOption = optionsSnapshot.empty ? null : optionsSnapshot.docs[0].data();
 
             if (userAnswer && correctOption && userAnswer === correctOption.text) {
                 score++;
             }
-        });
+        }));
 
         const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
 
@@ -62,10 +60,10 @@ export async function POST(
         try {
             const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
-            const prompt = `You are an educational AI assistant. A student just completed a test titled "${test.title}" with the following results:
+            const prompt = `You are an educational AI assistant. A student just completed a test titled "${testData.title}" with the following results:
 - Score: ${score}/${total} (${percentage}%)
-- Test Type: ${test.type === 'company' ? `Company Test (${test.company})` : `Aptitude Test (${test.topic})`}
-- Difficulty: ${test.difficulty}
+- Test Type: ${testData.type === 'company' ? `Company Test (${testData.company})` : `Aptitude Test (${testData.topic})`}
+- Difficulty: ${testData.difficulty}
 
 Provide constructive feedback in 2-3 paragraphs that:
 1. Acknowledges their performance
@@ -79,35 +77,34 @@ Keep the tone supportive and motivating.`;
             aiFeedback = response.text();
         } catch (error) {
             console.error('AI feedback generation error:', error);
-            // Continue without AI feedback if it fails
         }
 
         // Create result record
-        const result = await prisma.result.create({
-            data: {
-                userId: session.user.id,
-                testId: testId,
-                score: score,
-                total: total,
-                aiFeedback: aiFeedback,
-            },
-        });
+        const resultRef = adminDb.collection("Result").doc();
+        const resultData = {
+            id: resultRef.id,
+            userId: session.user.id,
+            testId: testId,
+            score: score,
+            total: total,
+            aiFeedback: aiFeedback,
+            createdAt: admin.firestore.Timestamp.now()
+        };
+
+        await resultRef.set(resultData);
 
         return NextResponse.json({
             message: 'Test submitted successfully',
             result: {
-                id: result.id,
+                id: resultRef.id,
                 score: score,
                 total: total,
                 percentage: percentage,
                 aiFeedback: aiFeedback,
             },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Test submission error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

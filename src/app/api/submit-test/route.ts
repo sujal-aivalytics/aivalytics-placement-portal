@@ -1,221 +1,110 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { wrapCode } from "@/lib/code-execution";
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { testId, answers, language = 'python' } = await req.json();
+        const body = await req.json();
+        const { testId, answers, timeSpent, driveId, roundId } = body;
 
-        // Fetch Test & Questions
-        const test = await prisma.test.findUnique({
-            where: { id: testId },
-            include: {
-                questions: {
-                    include: { options: true }
-                }
-            }
-        });
-
-        if (!test) {
-            return NextResponse.json({ error: "Test not found" }, { status: 404 });
+        if (!testId || !answers) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const details: any[] = [];
-        const codeAnswers: Record<string, string> = answers;
+        // Fetch Test
+        const testDoc = await adminDb.collection("Test").doc(testId).get();
+        if (!testDoc.exists) {
+            return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+        }
 
+        const testData = testDoc.data() as any;
+
+        // Fetch Questions and Options for validation/scoring
+        const questionsSnapshot = await adminDb.collection("Question")
+            .where("testId", "==", testId)
+            .get();
+
+        const questionsWithCorrect = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+            const qData = qDoc.data() as any;
+            const correctOptionSnapshot = await adminDb.collection("Option")
+                .where("questionId", "==", qDoc.id)
+                .where("isCorrect", "==", true)
+                .limit(1)
+                .get();
+
+            return {
+                id: qDoc.id,
+                correctOptionId: correctOptionSnapshot.empty ? null : correctOptionSnapshot.docs[0].id,
+                marks: qData.marks || 1
+            };
+        }));
+
+        // Scoring
         let score = 0;
-        let totalPossibleScore = 0;
-        let codingPassed = true;
+        let totalPossible = 0;
+        const processedAnswers = questionsWithCorrect.map(q => {
+            const userAnswer = answers[q.id];
+            const isCorrect = userAnswer === q.correctOptionId;
+            if (isCorrect) score += q.marks;
+            totalPossible += q.marks;
+            return {
+                questionId: q.id,
+                userAnswerId: userAnswer,
+                isCorrect
+            };
+        });
 
-        // Iterate Questions
-        for (const question of test.questions) {
-            let questionScore = 0;
-            let questionTotal = 0;
-            let isCorrect = false;
-            let userAnswer = null;
-            let status = 'skipped'; // correct, incorrect, skipped, partial?
+        const percentage = (score / totalPossible) * 100;
 
-            if (question.type === 'coding') {
-                questionTotal = 15;
-                const userCode = codeAnswers[question.id];
-                userAnswer = userCode;
+        // Save Result
+        const resultRef = adminDb.collection("Result").doc();
+        const now = admin.firestore.Timestamp.now();
 
-                if (!userCode || userCode.trim() === '') {
-                    codingPassed = false;
-                    status = 'skipped';
-                } else {
-                    try {
-                        // Parse Metadata for Test Cases
-                        const metadata = question.metadata ? JSON.parse(question.metadata) : {};
-                        const testCases = metadata.testCases || [];
+        const resultData = {
+            id: resultRef.id,
+            userId: session.user.id,
+            testId,
+            score,
+            percentage,
+            timeSpent,
+            responses: JSON.stringify(processedAnswers),
+            createdAt: now,
+            updatedAt: now
+        };
 
-                        const wrappedCode = wrapCode(userCode, language, {
-                            functionName: metadata.functionName,
-                            inputStructure: metadata.inputStructure || []
-                        });
+        await resultRef.set(resultData);
 
-                        let passedCount = 0;
-
-                        // Execute ALL Test Cases against Piston
-                        for (const testCase of testCases) {
-                            try {
-                                const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        language: language,
-                                        version: '3.10.0', // Basic version assumption
-                                        files: [{ content: wrappedCode }],
-                                        stdin: testCase.input
-                                    })
-                                });
-
-                                const data = await response.json();
-                                const output = data.run?.output?.trim();
-                                const expected = testCase.output?.trim();
-
-                                if (output === expected) {
-                                    passedCount++;
-                                }
-                            } catch (e) {
-                                console.error("Test case execution error", e);
-                            }
-                        }
-
-                        if (testCases.length > 0) {
-                            // Partial Scoring Logic
-                            const percentagePassed = passedCount / testCases.length;
-                            questionScore = Math.round(questionTotal * percentagePassed); // e.g., 15 * 0.5 = 7.5 -> 8
-
-                            if (passedCount === testCases.length) {
-                                isCorrect = true;
-                                status = 'correct';
-                            } else if (passedCount > 0) {
-                                isCorrect = false; // Technically not fully correct
-                                status = 'partial';
-                                // We don't fail the whole coding section if partial marks are given?
-                                // For now, let's keep strict "codingPassed" only if 100%, OR allow partial to pass?
-                                // Let's scale: if score > 0, it contributes.
-                                // But "codingPassed" flag might be used for strict limits.
-                                // Let's say if > 50% passed, we consider it "passed" for flow?
-                                if (percentagePassed < 0.5) codingPassed = false;
-                            } else {
-                                codingPassed = false;
-                                status = 'incorrect';
-                            }
-                        } else {
-                            // No test cases? Manual review or full marks if runs?
-                            questionScore = questionTotal;
-                            isCorrect = true;
-                            status = 'correct';
-                        }
-                    } catch (e) {
-                        console.error("Error executing code:", e);
-                        codingPassed = false;
-                        status = 'error';
-                    }
-                }
-            } else {
-                // MCQ / TrueFalse
-                questionTotal = 1;
-                const userAnswerId = answers[question.id];
-                userAnswer = userAnswerId;
-
-                const correctOption = question.options.find(o => o.isCorrect);
-
-                if (userAnswerId) {
-                    if (correctOption && String(userAnswerId) === String(correctOption.id)) {
-                        questionScore = 1;
-                        isCorrect = true;
-                        status = 'correct';
-                    } else {
-                        status = 'incorrect';
-                    }
-                } else {
-                    status = 'skipped';
-                }
-            }
-
-            score += questionScore;
-            totalPossibleScore += questionTotal;
-
-            // Add to detailed breakdown
-            details.push({
-                questionId: question.id,
-                text: question.text,
-                type: question.type,
-                userAnswer,
-                correctMetadata: question.type === 'coding' ? 'Test Cases hidden' : question.options.find(o => o.isCorrect)?.text, // Store correct answer text
-                score: questionScore,
-                total: questionTotal,
-                status
-            });
-        }
-
-        // Determine Verdict
-        // Pass if > 60% OR (if logic changes)
-        const percentage = totalPossibleScore > 0 ? (score / totalPossibleScore) * 100 : 0;
-        const passed = percentage >= 60;
-
-        // Update MockDriveSession
-        // Find existing session or create one
-        let driveSession = await prisma.mockDriveSession.findFirst({
-            where: {
+        // Update Round Progress if part of a Mock Drive
+        if (driveId && roundId) {
+            const progressRef = adminDb.collection("MockRoundProgress").doc(`${session.user.id}_${roundId}`);
+            await progressRef.set({
+                id: progressRef.id,
                 userId: session.user.id,
-                company: 'TCS',
-                status: 'IN_PROGRESS'
-            }
-        });
-
-        if (!driveSession) {
-            driveSession = await prisma.mockDriveSession.create({
-                data: {
-                    userId: session.user.id,
-                    company: 'TCS',
-                    currentRound: 1,
-                    status: 'IN_PROGRESS'
-                }
-            });
+                driveId,
+                roundId,
+                status: 'completed',
+                score: percentage,
+                completedAt: now
+            }, { merge: true });
         }
-
-        // Update Scores
-        await prisma.mockDriveSession.update({
-            where: { id: driveSession.id },
-            data: {
-                round1Score: score,
-                currentRound: passed ? 2 : 1, // Advance to 2 (Tech) if passed
-                status: passed ? 'IN_PROGRESS' : 'FAILED',
-            }
-        });
-
-        // Also create a Result record for history
-        await prisma.result.create({
-            data: {
-                userId: session.user.id,
-                testId: testId,
-                score: score,
-                total: totalPossibleScore,
-                details: details as any // Store JSON
-            }
-        });
 
         return NextResponse.json({
+            success: true,
             score,
-            total: totalPossibleScore,
-            verdict: passed ? 'Passed' : 'Failed',
-            nextRound: passed ? 2 : 1
+            percentage,
+            resultId: resultRef.id
         });
 
-    } catch (error) {
-        console.error("Submission error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error: any) {
+        console.error('Test submission error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

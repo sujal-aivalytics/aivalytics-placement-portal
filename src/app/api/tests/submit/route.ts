@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini AI
@@ -11,47 +12,31 @@ export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { testId, answers, score, total } = await req.json();
+        const body = await req.json();
+        const { testId, score, total } = body;
 
-        if (!testId || !answers || score === undefined || total === undefined) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
+        if (!testId || score === undefined || total === undefined) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         // Get test details for AI feedback
-        const test = await prisma.test.findUnique({
-            where: { id: testId },
-            include: {
-                questions: {
-                    include: {
-                        options: true,
-                    },
-                },
-            },
-        });
-
-        if (!test) {
-            return NextResponse.json(
-                { error: 'Test not found' },
-                { status: 404 }
-            );
+        const testDoc = await adminDb.collection("Test").doc(testId).get();
+        if (!testDoc.exists) {
+            return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
+
+        const testData = testDoc.data() as any;
 
         // Generate AI feedback
         let aiFeedback = '';
 
         try {
             if (process.env.GEMINI_API_KEY) {
-                const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
                 const percentage = (score / total) * 100;
                 const correctAnswers = score;
@@ -60,8 +45,8 @@ export async function POST(req: Request) {
                 const prompt = `You are an AI tutor providing personalized feedback for an aptitude test.
 
 Test Details:
-- Title: ${test.title}
-- Difficulty: ${test.difficulty}
+- Title: ${testData.title}
+- Difficulty: ${testData.difficulty}
 - Total Questions: ${total}
 - Correct Answers: ${correctAnswers}
 - Incorrect Answers: ${incorrectAnswers}
@@ -83,12 +68,12 @@ Keep the feedback constructive, encouraging, and specific. Format it in a clear,
                 // Fallback feedback if no API key
                 const percentage = (score / total) * 100;
                 aiFeedback = `Performance Summary:\nYou scored ${score} out of ${total} (${percentage.toFixed(1)}%).\n\n${percentage >= 80
-                        ? 'Excellent work! You demonstrated strong understanding of the concepts.'
-                        : percentage >= 60
-                            ? 'Good effort! You have a solid foundation but there is room for improvement.'
-                            : percentage >= 40
-                                ? 'You are making progress. Focus on understanding the core concepts better.'
-                                : 'Keep practicing! Review the fundamentals and try again.'
+                    ? 'Excellent work! You demonstrated strong understanding of the concepts.'
+                    : percentage >= 60
+                        ? 'Good effort! You have a solid foundation but there is room for improvement.'
+                        : percentage >= 40
+                            ? 'You are making progress. Focus on understanding the core concepts better.'
+                            : 'Keep practicing! Review the fundamentals and try again.'
                     }\n\nKeep up the good work and continue practicing!`;
             }
         } catch (error) {
@@ -99,35 +84,29 @@ Keep the feedback constructive, encouraging, and specific. Format it in a clear,
         }
 
         // Save result to database
-        const result = await prisma.result.create({
-            data: {
-                userId: session.user.id,
-                testId,
-                score,
-                total,
-                aiFeedback,
-            },
-            include: {
-                test: true,
-            },
-        });
+        const resultRef = adminDb.collection("Result").doc();
+        const resultData = {
+            id: resultRef.id,
+            userId: session.user.id,
+            testId,
+            score,
+            total,
+            aiFeedback,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+        };
+
+        await resultRef.set(resultData);
 
         return NextResponse.json({
             message: 'Test submitted successfully',
             result: {
-                id: result.id,
-                score: result.score,
-                total: result.total,
-                aiFeedback: result.aiFeedback,
-                createdAt: result.createdAt,
-                test: result.test,
+                ...resultData,
+                test: testData
             },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Test submission error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

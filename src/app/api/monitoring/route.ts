@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 // POST - Log monitoring event
 export async function POST(req: NextRequest) {
@@ -16,38 +17,32 @@ export async function POST(req: NextRequest) {
         const { resultId, eventType, metadata } = body;
 
         if (!resultId || !eventType) {
-            return NextResponse.json(
-                { error: 'Result ID and event type are required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Result ID and event type are required' }, { status: 400 });
         }
 
         // Verify the result belongs to the user
-        const result = await prisma.result.findUnique({
-            where: { id: resultId },
-            select: { userId: true }
-        });
+        const resultDoc = await adminDb.collection("Result").doc(resultId).get();
 
-        if (!result || result.userId !== session.user.id) {
+        if (!resultDoc.exists || resultDoc.data()?.userId !== session.user.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const event = await prisma.monitoringEvent.create({
-            data: {
-                userId: session.user.id,
-                resultId,
-                eventType,
-                details: metadata ? JSON.stringify(metadata) : undefined,
-            }
-        });
+        const eventRef = adminDb.collection("MonitoringEvent").doc();
+        const eventData = {
+            id: eventRef.id,
+            userId: session.user.id,
+            resultId,
+            eventType,
+            details: metadata ? JSON.stringify(metadata) : null,
+            timestamp: admin.firestore.Timestamp.now()
+        };
 
-        return NextResponse.json({ event });
-    } catch (error) {
+        await eventRef.set(eventData);
+
+        return NextResponse.json({ event: eventData });
+    } catch (error: any) {
         console.error('Error logging monitoring event:', error);
-        return NextResponse.json(
-            { error: 'Failed to log event' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to log event', details: error.message }, { status: 500 });
     }
 }
 
@@ -64,37 +59,30 @@ export async function GET(req: NextRequest) {
         const resultId = searchParams.get('resultId');
 
         if (!resultId) {
-            return NextResponse.json(
-                { error: 'Result ID is required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Result ID is required' }, { status: 400 });
         }
 
         // Verify access (user owns the result or is admin)
-        const result = await prisma.result.findUnique({
-            where: { id: resultId },
-            select: { userId: true }
-        });
-
-        if (!result) {
+        const resultDoc = await adminDb.collection("Result").doc(resultId).get();
+        if (!resultDoc.exists) {
             return NextResponse.json({ error: 'Result not found' }, { status: 404 });
         }
 
-        if (session.user.role !== 'admin' && result.userId !== session.user.id) {
+        const resultData = resultDoc.data();
+        if ((session.user as any).role !== 'admin' && resultData?.userId !== session.user.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const events = await prisma.monitoringEvent.findMany({
-            where: { resultId },
-            orderBy: { timestamp: 'asc' }
-        });
+        const eventsSnapshot = await adminDb.collection("MonitoringEvent")
+            .where("resultId", "==", resultId)
+            .orderBy("timestamp", "asc")
+            .get();
+
+        const events = eventsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         return NextResponse.json({ events });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching monitoring events:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch events' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to fetch events', details: error.message }, { status: 500 });
     }
 }

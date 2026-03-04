@@ -1,39 +1,53 @@
-
-import React from 'react';
-import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import ResultClient from "./result-client";
+import { adminDb } from "@/lib/firebase-config";
+import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export default async function MockTestResultPage(props: { params: Promise<{ id: string }>, searchParams: Promise<{ [key: string]: string }> }) {
-    const params = await props.params;
-    const { id } = params;
-
-    // We can also use searchParams to get 'status' or just fetch the latest result.
-    // Fetching from DB is more reliable for detailed view.
+export default async function ExamResultPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ resultId?: string }>;
+}) {
+    const { id } = await params;
+    const { resultId } = await searchParams;
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return notFound();
 
-    // Fetch the specific result for this test
-    // We want the LATEST result for this user and test
-    const result = await prisma.result.findFirst({
-        where: {
-            userId: session.user.id,
-            testId: id
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            test: true
-        }
-    });
-
-    if (!result) {
-        // Fallback if no result found (e.g. direct nav without submission, or error)
-        // But if query params exist, we might render a partial view?
-        // Let's just return notFound or a generic state for now.
-        return <div className="p-8 text-center">Result not processing or found. Please check your dashboard.</div>;
+    if (!session?.user) {
+        redirect(`/login?callbackUrl=/exam/${id}/result`);
     }
 
-    return <ResultClient result={result} />;
+    if (!resultId) {
+        redirect(`/exam/${id}/dashboard`);
+    }
+
+    // 1. Fetch Result
+    const resultDoc = await adminDb.collection("Result").doc(resultId).get();
+    if (!resultDoc.exists) notFound();
+    const resultData = resultDoc.data() as any;
+
+    // Verify ownership
+    if (resultData.userId !== session.user.id) {
+        redirect(`/exam/${id}/dashboard`);
+    }
+
+    // 2. Fetch Test details
+    const testDoc = await adminDb.collection("Test").doc(id).get();
+    const testData = testDoc.exists ? testDoc.data() : { title: "Assessment" };
+
+    return (
+        <div className="container mx-auto py-12">
+            <h1 className="text-4xl font-bold text-center mb-8">Test Result</h1>
+            <div className="max-w-2xl mx-auto bg-card rounded-xl shadow-lg p-8 border">
+                <div className="text-center mb-8">
+                    <p className="text-muted-foreground text-lg mb-2">{testData?.title}</p>
+                    <div className="text-6xl font-extrabold text-primary">
+                        {resultData.score}%
+                    </div>
+                </div>
+                {/* ... Render more details with resultData ... */}
+            </div>
+        </div>
+    );
 }

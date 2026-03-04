@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id: driveId } = await params;
+        const { id } = await params;
 
-        const rounds = await prisma.mockRound.findMany({
-            where: {
-                driveId: driveId,
-            },
-            orderBy: {
-                roundNumber: 'asc',
-            },
-        });
+        // Fetch rounds for the drive
+        const roundsSnapshot = await adminDb.collection("MockRound")
+            .where("driveId", "==", id)
+            .get();
 
-        return NextResponse.json({ rounds }, { status: 200 });
-    } catch (error) {
-        console.error('Error fetching mock rounds:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const rounds = roundsSnapshot.docs
+            .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+            .sort((a: any, b: any) => (a.roundNumber || 0) - (b.roundNumber || 0));
+
+        return NextResponse.json({ rounds });
+    } catch (error: any) {
+        console.error('Error fetching mock drive rounds:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

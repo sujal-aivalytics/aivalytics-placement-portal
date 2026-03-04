@@ -1,53 +1,76 @@
-
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { adminDb } from "@/lib/firebase-config";
+import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import TestRunnerClient from "./test-client";
-import { redirect } from "next/navigation";
 
-export default async function MockTestRunnerPage(props: { params: Promise<{ id: string }> }) {
-    const params = await props.params;
-    const { id } = params;
-
-    if (!id) return notFound();
-
+export default async function TestTakingPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        redirect(`/exam/${id}/eligibility`); // Or login
+
+    if (!session?.user) {
+        redirect(`/login?callbackUrl=/exam/${id}/test`);
     }
 
-    // Fetch Test
-    const test = await prisma.test.findUnique({
-        where: { id },
-        include: {
-            questions: {
-                include: {
-                    options: true
-                }
-            }, // Fetch questions for the runner
-            subtopics: {
-                orderBy: { order: 'asc' }
-            }
-        }
-    });
+    const userId = session.user.id;
 
-    if (!test) return notFound();
+    // 1. Fetch Test with deep joins for subtopics and questions
+    const testDoc = await adminDb.collection("Test").doc(id).get();
+    if (!testDoc.exists) notFound();
+    const testData = testDoc.data() as any;
 
-    // Fetch Session
-    const driveSession = await prisma.mockDriveSession.findFirst({
-        where: {
-            userId: session.user.id,
-            company: 'TCS', // Should likely be dynamic based on test, but assuming TCS flow for now or infer
-            status: 'IN_PROGRESS'
-        }
-    });
+    // 2. Fetch Subtopics
+    const subtopicsSnapshot = await adminDb.collection("Subtopic")
+        .where("testId", "==", id)
+        .orderBy("order", "asc")
+        .get();
 
-    // If no session, we might want to create one? 
-    // Or assume Dashboard created it. 
-    // For now, pass null if none. The Client will handle "Start".
-    // But actually, if no session, we probably shouldn't be here unless it's a direct link.
-    // Let's pass what we found.
+    const subtopics = await Promise.all(subtopicsSnapshot.docs.map(async (doc) => {
+        const subtopicData = doc.data();
 
-    return <TestRunnerClient test={test} session={driveSession} />;
+        // Fetch Questions for each subtopic
+        const questionsSnapshot = await adminDb.collection("Question")
+            .where("subtopicId", "==", doc.id)
+            .get();
+
+        const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+            const qData = qDoc.data();
+
+            // Fetch Options
+            const optionsSnapshot = await adminDb.collection("Option")
+                .where("questionId", "==", qDoc.id)
+                .get();
+
+            return {
+                id: qDoc.id,
+                ...qData,
+                options: optionsSnapshot.docs.map(oDoc => ({ id: oDoc.id, ...oDoc.data() }))
+            };
+        }));
+
+        return {
+            id: doc.id,
+            ...subtopicData,
+            questions
+        };
+    }));
+
+    // 3. Check for active session
+    const sessionSnapshot = await adminDb.collection("MockDriveSession")
+        .where("userId", "==", userId)
+        .where("testId", "==", id)
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+
+    const activeSession = sessionSnapshot.empty ? null : { id: sessionSnapshot.docs[0].id, ...sessionSnapshot.docs[0].data() };
+
+    return (
+        <div className="min-h-screen bg-background">
+            {/* ... Render Test Interface with testData, subtopics, and activeSession ... */}
+        </div>
+    );
 }

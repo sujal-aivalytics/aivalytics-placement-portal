@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 import { executeCode } from '@/lib/judge0';
 import { LANGUAGES } from '@/config/languages';
 import { generateCodingEvaluation } from '@/lib/assessment-ai';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const body = await req.json();
         const { enrollmentId, roundId, questionId, code, language } = body;
@@ -18,13 +19,13 @@ export async function POST(req: Request) {
         if (!judge0Id) return NextResponse.json({ error: 'Unsupported language' }, { status: 400 });
 
         // 1. Fetch Question & Test Cases
-        const question = await prisma.mockQuestion.findUnique({
-            where: { id: questionId }
-        });
+        const questionDoc = await adminDb.collection("MockQuestion").doc(questionId).get();
+        if (!questionDoc.exists) {
+            return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+        }
+        const question = questionDoc.data() as any;
 
-        if (!question) return NextResponse.json({ error: 'Question not found' }, { status: 404 });
-
-        const metadata = (question.codingMetadata as { testCases?: { input: string; output: string }[]; driverCode?: Record<string, string> }) || {};
+        const metadata = question.codingMetadata ? (typeof question.codingMetadata === 'string' ? JSON.parse(question.codingMetadata) : question.codingMetadata) : {};
         const testCases = metadata.testCases || [];
 
         // 2. Prepare Code for Execution
@@ -41,9 +42,8 @@ export async function POST(req: Request) {
             const result = await executeCode(fullcode, judge0Id, "");
             runResults.push(result);
         } else {
-            // Execute all test cases in parallel
             runResults = await Promise.all(
-                testCases.map((tc: { input?: string | number }) =>
+                testCases.map((tc: any) =>
                     executeCode(fullcode, judge0Id, tc.input?.toString().trim() || "")
                 )
             );
@@ -70,34 +70,76 @@ export async function POST(req: Request) {
             question.text
         );
 
-        // 4. Save Response
-        const progress = await prisma.mockRoundProgress.upsert({
-            where: { enrollmentId_roundId: { enrollmentId, roundId } },
-            update: {
-                status: 'COMPLETED',
-                completedAt: new Date(),
-                score: score,
-                totalQuestions: 1,
-                answeredQuestions: 1,
-                aiFeedback: JSON.stringify(aiEvaluation)
-            },
-            create: {
-                enrollmentId,
-                roundId,
-                status: 'COMPLETED',
-                completedAt: new Date(),
-                score: score,
-                totalQuestions: 1,
-                answeredQuestions: 1,
-                startedAt: new Date(),
-                aiFeedback: JSON.stringify(aiEvaluation)
-            }
-        });
+        // 4. Atomic Updates in Transaction
+        await adminDb.runTransaction(async (transaction: admin.firestore.Transaction) => {
+            // A. READS FIRST
+            const progressQuery = adminDb.collection("MockRoundProgress")
+                .where("enrollmentId", "==", enrollmentId)
+                .where("roundId", "==", roundId)
+                .limit(1);
 
-        await prisma.mockResponse.upsert({
-            where: { roundProgressId_questionId: { roundProgressId: progress.id, questionId } },
-            create: {
-                roundProgressId: progress.id,
+            const progressSnapshot = await transaction.get(progressQuery);
+
+            let progressId: string;
+            let progressRef: admin.firestore.DocumentReference;
+            let progressExists = !progressSnapshot.empty;
+
+            if (!progressExists) {
+                progressRef = adminDb.collection("MockRoundProgress").doc();
+                progressId = progressRef.id;
+            } else {
+                progressRef = progressSnapshot.docs[0].ref;
+                progressId = progressSnapshot.docs[0].id;
+            }
+
+            const responseQuery = adminDb.collection("MockResponse")
+                .where("roundProgressId", "==", progressId)
+                .where("questionId", "==", questionId)
+                .limit(1);
+
+            const responseSnapshot = await transaction.get(responseQuery);
+
+            const enrollmentRef = adminDb.collection("MockDriveEnrollment").doc(enrollmentId);
+            const enrollmentDoc = await transaction.get(enrollmentRef);
+
+            // B. ADDITIONAL DATA (Rounds check)
+            let isLastRound = false;
+            let currentRound = 1;
+            let overallScore = 0;
+
+            if (enrollmentDoc.exists) {
+                const enrollment = enrollmentDoc.data() as any;
+                const roundsSnapshot = await adminDb.collection("MockRound").where("driveId", "==", enrollment.driveId).get();
+                const totalRounds = roundsSnapshot.size;
+                currentRound = enrollment.currentRoundNumber || 1;
+                isLastRound = currentRound >= totalRounds;
+                overallScore = enrollment.overallScore || 0;
+            }
+
+            // C. WRITES SECOND
+            const progressUpdate = {
+                status: 'COMPLETED',
+                completedAt: admin.firestore.Timestamp.now(),
+                score: score,
+                totalQuestions: 1,
+                answeredQuestions: 1,
+                aiFeedback: JSON.stringify(aiEvaluation)
+            };
+
+            if (!progressExists) {
+                transaction.set(progressRef!, {
+                    ...progressUpdate,
+                    id: progressId,
+                    enrollmentId,
+                    roundId,
+                    startedAt: admin.firestore.Timestamp.now(),
+                });
+            } else {
+                transaction.update(progressRef!, progressUpdate);
+            }
+
+            const responseData = {
+                roundProgressId: progressId,
                 questionId,
                 answer: code,
                 language,
@@ -105,51 +147,35 @@ export async function POST(req: Request) {
                 score,
                 passedCases,
                 totalCases,
-                lastSavedAt: new Date()
-            },
-            update: {
-                answer: code,
-                language,
-                isCorrect: passedCases === totalCases,
-                score,
-                passedCases,
-                totalCases,
-                lastSavedAt: new Date()
+                lastSavedAt: admin.firestore.Timestamp.now()
+            };
+
+            if (responseSnapshot.empty) {
+                const resRef = adminDb.collection("MockResponse").doc();
+                transaction.set(resRef, { ...responseData, id: resRef.id });
+            } else {
+                transaction.update(responseSnapshot.docs[0].ref, responseData);
             }
-        });
 
-        // 5. Update Enrollment Logic
-        const enrollment = await prisma.mockDriveEnrollment.findUnique({
-            where: { id: enrollmentId },
-            include: { drive: { include: { rounds: true } } }
-        });
-
-        if (enrollment) {
-            const totalRounds = enrollment.drive.rounds.length;
-            const currentRound = enrollment.currentRoundNumber;
-            const isLastRound = currentRound >= totalRounds;
-
-            if (isPassed) {
-                // Calculate new overall score as a running average percentage (0-100)
-                const updatedOverallScore = ((enrollment.overallScore * (currentRound - 1)) + score) / currentRound;
-
-                await prisma.mockDriveEnrollment.update({
-                    where: { id: enrollmentId },
-                    data: {
+            if (enrollmentDoc.exists) {
+                if (isPassed) {
+                    const updatedOverallScore = ((overallScore * (currentRound - 1)) + score) / currentRound;
+                    transaction.update(enrollmentRef, {
                         currentRoundNumber: isLastRound ? currentRound : currentRound + 1,
                         overallScore: updatedOverallScore,
-                        status: isLastRound ? 'PASSED' : 'IN_PROGRESS'
-                    }
-                });
-            } else {
-                await prisma.mockDriveEnrollment.update({
-                    where: { id: enrollmentId },
-                    data: { status: 'FAILED' }
-                });
+                        status: isLastRound ? 'PASSED' : 'IN_PROGRESS',
+                        updatedAt: admin.firestore.Timestamp.now()
+                    });
+                } else {
+                    transaction.update(enrollmentRef, {
+                        status: 'FAILED',
+                        updatedAt: admin.firestore.Timestamp.now()
+                    });
+                }
             }
-        }
+        });
 
-        // Transform results for UI compatibility if needed
+        // 5. Format results for UI
         const formattedRunResults = runResults.map((res: any, index: number) => {
             const stdout = (res.stdout || "").trim();
             const expected = testCases[index]?.output?.toString().trim() || "";
@@ -172,9 +198,8 @@ export async function POST(req: Request) {
             results: formattedRunResults
         });
 
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } catch (error: any) {
         console.error('Coding Submit Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error', details: errorMessage }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }

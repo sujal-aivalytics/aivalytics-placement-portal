@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 // GET all tests or a specific test
 export async function GET(req: Request) {
@@ -10,61 +11,76 @@ export async function GET(req: Request) {
         const testId = searchParams.get('id');
 
         if (testId) {
-            // Get specific test with questions
-            const test = await prisma.test.findUnique({
-                where: { id: testId },
-                include: {
-                    questions: {
-                        include: {
-                            options: true,
-                        },
-                    },
-                },
-            });
-
-            if (!test) {
-                return NextResponse.json(
-                    { error: 'Test not found' },
-                    { status: 404 }
-                );
+            // Get specific test
+            const testDoc = await adminDb.collection("Test").doc(testId).get();
+            if (!testDoc.exists) {
+                return NextResponse.json({ error: 'Test not found' }, { status: 404 });
             }
 
-            return NextResponse.json({ test });
+            const testData = testDoc.data();
+
+            // Get questions for this test
+            const questionsSnapshot = await adminDb.collection("Question")
+                .where("testId", "==", testId)
+                .orderBy("order", "asc")
+                .get();
+
+            const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+                const qData = qDoc.data();
+                // Get options for each question
+                const optionsSnapshot = await adminDb.collection("Option")
+                    .where("questionId", "==", qDoc.id)
+                    .get();
+
+                return {
+                    ...qData,
+                    id: qDoc.id,
+                    options: optionsSnapshot.docs.map(oDoc => ({ ...oDoc.data(), id: oDoc.id }))
+                };
+            }));
+
+            return NextResponse.json({
+                test: { ...testData, id: testDoc.id, questions }
+            });
         } else {
-            // Get all tests (optionally filtered by type)
+            // Get all tests
             const type = searchParams.get('type');
             const excludeType = searchParams.get('exclude_type');
 
-            const whereClause: any = {};
+            let query: any = adminDb.collection("Test");
             if (type) {
-                whereClause.type = type;
+                query = query.where("type", "==", type);
             } else if (excludeType) {
-                whereClause.type = {
-                    not: excludeType
-                };
+                // Firestore doesn't have a direct 'not' operator but since we only have a few types...
+                // Alternatively, we filter in JS
             }
 
-            const tests = await prisma.test.findMany({
-                where: whereClause,
-                include: {
-                    _count: {
-                        select: {
-                            questions: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            });
+            const testsSnapshot = await query.orderBy("createdAt", "desc").get();
+            let tests = testsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
-            return NextResponse.json({ tests });
+            if (excludeType) {
+                tests = tests.filter((t: any) => t.type !== excludeType);
+            }
+
+            // For each test, get the question count
+            // (In a real app, we should store questionCount on the Test document)
+            const testsWithCount = await Promise.all(tests.map(async (test: any) => {
+                const countSnapshot = await adminDb.collection("Question")
+                    .where("testId", "==", test.id)
+                    .count()
+                    .get();
+                return {
+                    ...test,
+                    _count: { questions: countSnapshot.data().count }
+                };
+            }));
+
+            return NextResponse.json({ tests: testsWithCount });
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('Tests fetch error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
         return NextResponse.json(
-            { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+            { error: 'Internal server error', details: error.message },
             { status: 500 }
         );
     }
@@ -75,125 +91,114 @@ export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user || session.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const body = await req.json();
-        console.log("Create Test Request Body:", JSON.stringify(body, null, 2));
         const { title, description, duration, difficulty, questions, type, company, topic } = body;
 
         if (!title || !duration || !difficulty) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Create test payload
-        const testData: any = {
+        const batch = adminDb.batch();
+        const testRef = adminDb.collection("Test").doc();
+
+        const testData = {
             title,
             description,
             duration: parseInt(duration),
             difficulty,
             type: type || 'topic',
-            company,
-            topic,
+            company: company || null,
+            topic: topic || null,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
         };
 
-        // Only add questions if they exist and are not empty
-        if (questions && Array.isArray(questions) && questions.length > 0) {
-            testData.questions = {
-                create: questions.map((q: { text: string; type?: string; category?: string; difficulty?: string; metadata?: any; options: Array<{ text: string; isCorrect: boolean }> }) => ({
+        batch.set(testRef, testData);
+
+        if (questions && Array.isArray(questions)) {
+            questions.forEach((q, qIndex) => {
+                const qRef = adminDb.collection("Question").doc();
+                batch.set(qRef, {
+                    testId: testRef.id,
                     text: q.text,
                     type: q.type || 'multiple-choice',
-                    category: q.category,
-                    difficulty: q.difficulty,
-                    metadata: q.metadata ? JSON.stringify(q.metadata) : undefined,
-                    options: {
-                        create: q.options?.map((opt: { text: string; isCorrect: boolean }) => ({
+                    category: q.category || null,
+                    difficulty: q.difficulty || null,
+                    order: q.order || qIndex,
+                    marks: q.marks || 1,
+                    createdAt: admin.firestore.Timestamp.now()
+                });
+
+                if (q.options && Array.isArray(q.options)) {
+                    q.options.forEach(opt => {
+                        const optRef = adminDb.collection("Option").doc();
+                        batch.set(optRef, {
+                            questionId: qRef.id,
                             text: opt.text,
-                            isCorrect: opt.isCorrect || false,
-                        })),
-                    },
-                })),
-            };
+                            isCorrect: opt.isCorrect || false
+                        });
+                    });
+                }
+            });
         }
 
-        // Create test with questions
-        const test = await prisma.test.create({
-            data: testData,
-            include: {
-                questions: {
-                    include: {
-                        options: true,
-                    },
-                },
-            },
-        });
-        console.log("Test Created in DB:", test.id);
+        await batch.commit();
 
         return NextResponse.json(
-            { message: 'Test created successfully', test },
+            { message: 'Test created successfully', id: testRef.id },
             { status: 201 }
         );
-    } catch (error) {
+    } catch (error: any) {
         console.error('Test creation error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorDetails = process.env.NODE_ENV === 'development' ? {
-            message: errorMessage,
-            stack: error instanceof Error ? error.stack : undefined
-        } : undefined;
-
         return NextResponse.json(
-            {
-                error: 'Failed to create test',
-                details: errorMessage,
-                debug: errorDetails
-            },
+            { error: 'Failed to create test', details: error.message },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Delete a test (Admin only)
+// DELETE
 export async function DELETE(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user || session.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!session?.user || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { searchParams } = new URL(req.url);
         const testId = searchParams.get('id');
 
         if (!testId) {
-            return NextResponse.json(
-                { error: 'Test ID required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Test ID required' }, { status: 400 });
         }
 
-        await prisma.test.delete({
-            where: { id: testId },
-        });
+        // In Firestore, deleting a document doesn't delete sub-collections or "related" docs in other collections
+        // We need to manually delete questions and options (or use a cloud function / recursive delete)
+        // For now, let's just delete the Test doc (cascading deletes should be handled)
+
+        // Simple manual cascade for questions and their options
+        const questionsSnapshot = await adminDb.collection("Question").where("testId", "==", testId).get();
+        const batch = adminDb.batch();
+
+        for (const qDoc of questionsSnapshot.docs) {
+            const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", qDoc.id).get();
+            optionsSnapshot.docs.forEach(oDoc => batch.delete(oDoc.ref));
+            batch.delete(qDoc.ref);
+        }
+
+        batch.delete(adminDb.collection("Test").doc(testId));
+        await batch.commit();
 
         return NextResponse.json({ message: 'Test deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Test deletion error:', error);
         return NextResponse.json(
-            {
-                error: 'Failed to delete test',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                prismaCode: (error as any).code
-            },
+            { error: 'Failed to delete test', details: error.message },
             { status: 500 }
         );
     }

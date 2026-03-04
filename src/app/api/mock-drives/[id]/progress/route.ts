@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET(
     req: Request,
@@ -10,36 +10,31 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.email) {
+        if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { id: driveId } = await params;
 
-        // Fetch enrollment
-        const enrollment = await prisma.mockDriveEnrollment.findUnique({
-            where: {
-                userId_driveId: {
-                    userId: session.user.id,
-                    driveId: driveId,
-                },
-            },
-            include: {
-                drive: true,
-                roundProgress: true
-            }
-        });
+        // Fetch enrollment for this drive
+        const enrollmentSnapshot = await adminDb.collection("MockDriveEnrollment")
+            .where("driveId", "==", driveId)
+            .where("userId", "==", session.user.id)
+            .limit(1)
+            .get();
 
-        if (!enrollment) {
-            // If not enrolled, maybe we should auto-enroll or return 404?
-            // For now, let's assume they must be enrolled.
-            // Or we can return null progress which frontend interprets as "Starts"
-            return NextResponse.json({ enrollment: null }, { status: 200 });
+        if (enrollmentSnapshot.empty) {
+            return NextResponse.json({ enrollment: null });
         }
 
-        return NextResponse.json({ enrollment }, { status: 200 });
-    } catch (error) {
-        console.error('Error fetching mock drive progress:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const enrollment = {
+            id: enrollmentSnapshot.docs[0].id,
+            ...enrollmentSnapshot.docs[0].data()
+        };
+
+        return NextResponse.json({ enrollment });
+    } catch (error: any) {
+        console.error('Progress fetch error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

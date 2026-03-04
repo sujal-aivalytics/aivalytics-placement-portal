@@ -1,17 +1,18 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@/lib/prisma";
+import { FirestoreAdapter } from "@next-auth/firebase-adapter";
+import { adminDb } from "@/lib/firebase-config";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma) as any,
+    adapter: FirestoreAdapter(adminDb) as any,
     secret: process.env.NEXTAUTH_SECRET,
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            allowDangerousEmailAccountLinking: true,
         }),
         CredentialsProvider({
             name: "Credentials",
@@ -28,13 +29,22 @@ export const authOptions: NextAuthOptions = {
 
                     console.log('🔄 Attempting login for:', credentials.email);
 
-                    // Find user in database
-                    const user = await prisma.user.findUnique({
-                        where: { email: credentials.email },
-                    });
+                    // Find user in Firestore
+                    const userSnapshot = await adminDb.collection("users")
+                        .where("email", "==", credentials.email)
+                        .limit(1)
+                        .get();
 
-                    if (!user || !user.password) {
-                        console.log('❌ Login failed: User not found or no password');
+                    if (userSnapshot.empty) {
+                        console.log('❌ Login failed: User not found');
+                        throw new Error('Invalid credentials');
+                    }
+
+                    const userDoc = userSnapshot.docs[0];
+                    const user = userDoc.data();
+
+                    if (!user.password) {
+                        console.log('❌ Login failed: User has no password (maybe Google login?)');
                         throw new Error('Invalid credentials');
                     }
 
@@ -53,24 +63,14 @@ export const authOptions: NextAuthOptions = {
 
                     // Return user object with role
                     return {
-                        id: user.id,
+                        id: userDoc.id,
                         name: user.name,
                         email: user.email,
                         image: user.image,
                         role: user.role as "admin" | "user",
                     };
                 } catch (error) {
-                    const errorDetails = {
-                        message: (error as Error).message,
-                        stack: (error as Error).stack,
-                        error,
-                        timestamp: new Date().toISOString()
-                    };
-                    console.error('❌ Authorization error details:', errorDetails);
-
-                    console.error('❌ Authorization error details:', errorDetails);
-
-                    // Return null to trigger CredentialsSignin error
+                    console.error('❌ Authorization error:', error);
                     return null;
                 }
             }
@@ -81,34 +81,40 @@ export const authOptions: NextAuthOptions = {
         maxAge: 30 * 24 * 60 * 60, // 30 days
     },
     callbacks: {
-        async jwt({ token, user, trigger, session }) {
+        async jwt({ token, user }) {
             if (user) {
-                token.role = user.role;
+                token.role = (user as any).role;
                 token.isProfileComplete = false; // Default
             }
 
-            // If user is logged in, fetch latest data to check profile completion
-            if (token.sub) {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: token.sub },
-                    select: {
-                        phone: true,
-                        graduationCGPA: true,
-                        tenthPercentage: true,
-                        twelfthPercentage: true,
-                        role: true
+            if (token.sub || token.email) {
+                // Try by ID first, then by Email
+                let userDoc = token.sub ? await adminDb.collection("users").doc(token.sub).get() : null;
+                let dbUser = userDoc?.exists ? userDoc.data() : null;
+
+                if (!dbUser && token.email) {
+                    const emailSnap = await adminDb.collection("users")
+                        .where("email", "==", token.email)
+                        .limit(1)
+                        .get();
+                    if (!emailSnap.empty) {
+                        dbUser = emailSnap.docs[0].data();
+                        // Sync token.sub if it was wrong
+                        token.sub = emailSnap.docs[0].id;
                     }
-                });
+                }
 
                 if (dbUser) {
                     token.role = dbUser.role as "admin" | "user";
                     const isComplete = !!(
                         dbUser.phone &&
-                        dbUser.graduationCGPA !== null &&
-                        dbUser.tenthPercentage !== null &&
-                        dbUser.twelfthPercentage !== null
+                        dbUser.name &&
+                        dbUser.email
                     );
                     token.isProfileComplete = isComplete;
+                    console.log(`[AUTH] Token sync success: email=${dbUser.email}, isComplete=${isComplete}`);
+                } else {
+                    console.log(`[AUTH] User fallback failed for: ${token.email || token.sub}`);
                 }
             }
 
@@ -116,9 +122,10 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user) {
-                session.user.role = token.role;
-                session.user.id = token.sub!;
-                session.user.isProfileComplete = token.isProfileComplete;
+                (session.user as any).role = token.role;
+                (session.user as any).id = token.sub!;
+                (session.user as any).isProfileComplete = token.isProfileComplete;
+                console.log(`[AUTH] Session created: user=${session.user.email}, isComplete=${token.isProfileComplete}`);
             }
             return session;
         }

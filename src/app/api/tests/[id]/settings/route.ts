@@ -1,7 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-config";
 import { NextResponse } from "next/server";
+import * as admin from 'firebase-admin';
 
 export async function PATCH(
     req: Request,
@@ -16,18 +17,16 @@ export async function PATCH(
 
         const { eligibilityCriteria } = await req.json();
 
-        const test = await prisma.test.update({
-            where: {
-                id: id,
-            },
-            data: {
-                eligibilityCriteria,
-            },
+        await adminDb.collection("Test").doc(id).update({
+            eligibilityCriteria: eligibilityCriteria || null,
+            updatedAt: admin.firestore.Timestamp.now()
         });
 
-        return NextResponse.json(test);
-    } catch (error) {
+        const testDoc = await adminDb.collection("Test").doc(id).get();
+
+        return NextResponse.json({ id: testDoc.id, ...testDoc.data() });
+    } catch (error: any) {
         console.error("[TEST_SETTINGS_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return new NextResponse(`Internal Error: ${error.message}`, { status: 500 });
     }
 }

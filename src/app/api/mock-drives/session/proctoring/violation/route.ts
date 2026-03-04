@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
     try {
@@ -14,35 +15,27 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
         }
 
-        // Log violation
-        // Since we don't have a dedicated Violation model yet, we can store it in MockRoundProgress.aiFeedback 
-        // or just log to console for now if we don't want to change schema.
-        // Actually, let's assume we want to track warnings.
+        const progressQuery = adminDb.collection("MockRoundProgress")
+            .where("enrollmentId", "==", enrollmentId)
+            .where("roundId", "==", roundId)
+            .limit(1);
 
-        const progress = await prisma.mockRoundProgress.findUnique({
-            where: { enrollmentId_roundId: { enrollmentId, roundId } }
-        });
+        const progressSnapshot = await progressQuery.get();
 
-        if (progress) {
-            // Append to feedback or just increment a count if we had one.
-            // For now, let's just log it. In a real system, we'd have a ProctoringViolation model.
-            console.log(`[PROCTORING VIOLATION] User ${session.user.id}, Type: ${type}, Msg: ${message}`);
+        if (!progressSnapshot.empty) {
+            const progressDoc = progressSnapshot.docs[0];
+            const progress = progressDoc.data() as any;
 
-            // We could potentially update the progress with a warning count if the schema allowed.
-            // As of now, schema has: status, score, totalQuestions, answeredQuestions, aiFeedback.
-
-            await prisma.mockRoundProgress.update({
-                where: { id: progress.id },
-                data: {
-                    proctoringLogs: (progress.proctoringLogs ? progress.proctoringLogs + '\n' : '') + `[${new Date().toISOString()}] ${type}: ${message}`
-                }
+            await progressDoc.ref.update({
+                proctoringLogs: (progress.proctoringLogs ? progress.proctoringLogs + '\n' : '') + `[${new Date().toISOString()}] ${type}: ${message}`,
+                updatedAt: admin.firestore.Timestamp.now()
             });
         }
 
         return NextResponse.json({ success: true });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Violation Log Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }

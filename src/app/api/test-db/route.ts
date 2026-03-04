@@ -1,30 +1,18 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET() {
     try {
-        // Test database connection
-        const userCount = await prisma.user.count();
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-            },
-        });
+        const usersSnapshot = await adminDb.collection("User").get();
+        const userCount = usersSnapshot.size;
+        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         return NextResponse.json({
-            success: true,
-            message: 'Database connection successful',
+            status: 'Firestore connection successful',
             userCount,
-            users,
+            users: users.slice(0, 5) // Return first 5 for safety
         });
-    } catch (error) {
-        console.error('Database test error:', error);
-        return NextResponse.json({
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-        }, { status: 500 });
+    } catch (error: any) {
+        return NextResponse.json({ status: 'Firestore connection failed', error: error.message }, { status: 500 });
     }
 }

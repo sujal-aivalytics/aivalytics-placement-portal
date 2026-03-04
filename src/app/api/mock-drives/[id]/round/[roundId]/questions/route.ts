@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET(
     req: Request,
@@ -9,50 +9,35 @@ export async function GET(
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+
+        if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id: driveId, roundId } = await params;
+        const { roundId } = await params;
 
-        // 1. Verify Enrollment (Optional but good practice)
-        // const enrollment = await prisma.mockDriveEnrollment.findFirst(...)
+        // Fetch round details
+        const roundDoc = await adminDb.collection("MockRound").doc(roundId).get();
+        if (!roundDoc.exists) {
+            return NextResponse.json({ error: 'Round not found' }, { status: 404 });
+        }
 
-        // 2. Fetch Questions
-        const questions = await prisma.mockQuestion.findMany({
-            where: {
-                roundId: roundId
-            },
-            select: {
-                id: true,
-                text: true,
-                type: true,
-                points: true,
-                options: true, // Should be JSON array of { id, text }. isCorrect should be filtered out if it exists here!
-                codingMetadata: true
-            }
+        // Fetch questions for this round
+        const questionsSnapshot = await adminDb.collection("MockQuestion")
+            .where("roundId", "==", roundId)
+            .get();
+
+        const questions = questionsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        return NextResponse.json({
+            round: roundDoc.data(),
+            questions
         });
-
-        // 3. Sanitize Options (remove isCorrect if present in JSON)
-        const sanitizedQuestions = questions.map(q => {
-            let options = q.options as any[];
-            if (Array.isArray(options)) {
-                options = options.map(opt => ({
-                    id: opt.id,
-                    text: opt.text
-                    // Omit isCorrect
-                }));
-            }
-            return {
-                ...q,
-                options
-            };
-        });
-
-        return NextResponse.json({ questions: sanitizedQuestions }, { status: 200 });
-
-    } catch (error) {
-        console.error('Error fetching round questions:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Mock round questions fetch error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

@@ -1,24 +1,24 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { adminDb } from "@/lib/firebase-config";
 import { executeCode } from "@/lib/judge0";
 
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         const { roundId, questionId, code, language, languageId } = await req.json();
 
         // 1. Fetch Question
-        const question = await prisma.mockQuestion.findUnique({
-            where: { id: questionId },
-        });
+        const questionDoc = await adminDb.collection("MockQuestion").doc(questionId).get();
+        if (!questionDoc.exists) {
+            return NextResponse.json({ error: "Question not found" }, { status: 404 });
+        }
+        const question = questionDoc.data() as any;
 
-        if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
-
-        const metadata = question.codingMetadata as any || {};
+        const metadata = question.codingMetadata ? (typeof question.codingMetadata === 'string' ? JSON.parse(question.codingMetadata) : question.codingMetadata) : {};
         const allTestCases = metadata.testCases || [];
         // Filter out hidden test cases for "Run" (simulation mode)
         const testCases = allTestCases.filter((tc: any) => !tc.isHidden);
@@ -33,9 +33,7 @@ export async function POST(req: Request) {
 
         // 3. Execute all test cases using Judge0
         if (testCases.length === 0) {
-            // Default if no test cases defined
             const result = await executeCode(fullcode, languageId, "");
-
             return NextResponse.json({
                 success: result.status.id === 3,
                 results: [{
@@ -51,8 +49,6 @@ export async function POST(req: Request) {
             });
         }
 
-        // Execute test cases sequence for Judge0 to avoid rate limits on free tier if necessary, 
-        // but Promise.all is faster. Let's stick with Promise.all for now.
         const judge0Results = await Promise.all(
             testCases.map((tc: any) =>
                 executeCode(fullcode, languageId, tc.input?.toString().trim() || "")
@@ -63,8 +59,6 @@ export async function POST(req: Request) {
         const formattedResults = judge0Results.map((res: any, index: number) => {
             const stdout = (res.stdout || "").trim();
             const expected = (testCases[index]?.output || "").toString().trim();
-
-            // Judge0 usually handles status, but we must verify output match
             let passed = res.status.id === 3 && stdout === expected;
 
             return {

@@ -1,23 +1,40 @@
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { adminDb } from "@/lib/firebase-config";
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import CodeWorkspace from "./CodeWorkspace";
 
-export default async function ProblemPage(props: {
+export default async function ProblemDetailPage({
+  params,
+}: {
   params: Promise<{ problemId: string }>;
 }) {
-  // ✅ unwrap params (VERY IMPORTANT)
-  const { problemId } = await props.params;
+  const { problemId } = await params;
+  const session = await getServerSession(authOptions);
 
-  const id = Number(problemId);
-  if (Number.isNaN(id)) notFound();
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=/dashboard/programming/${problemId}`);
+  }
 
-  const problem = await prisma.problem.findUnique({
-    where: { id },
-  });
+  // Fetch Problem
+  const doc = await adminDb.collection("Problem").doc(problemId).get();
+  if (!doc.exists) notFound();
 
-  if (!problem) notFound();
+  const problemData = doc.data() as any;
+
+  // Sanitize: Convert Firestore Timestamps to plain objects (ISO strings)
+  // because Next.js cannot pass Classes (Timestamps) to Client Components.
+  const problem = {
+    ...problemData,
+    id: doc.id,
+    id_alias: doc.id,
+    createdAt: problemData.createdAt?.toDate?.()?.toISOString() || null,
+    updatedAt: problemData.updatedAt?.toDate?.()?.toISOString() || null,
+  };
 
   return (
-    <CodeWorkspace problem={JSON.parse(JSON.stringify(problem))} />
+    <div className="h-screen bg-white dark:bg-[#0a0a0a] overflow-hidden">
+      <CodeWorkspace problem={problem} />
+    </div>
   );
 }

@@ -1,37 +1,40 @@
 import { NextResponse } from 'next/server';
-import { prisma } from "@/lib/prisma";
+import { adminDb } from '@/lib/firebase-config';
 
 export async function POST(req: Request) {
     try {
-        const { email, otp } = await req.json();
+        const body = await req.json();
+        const { email, otp } = body;
 
         if (!email || !otp) {
-            return NextResponse.json({ message: "Email and OTP are required" }, { status: 400 });
+            return NextResponse.json({ error: 'Email and OTP are required' }, { status: 400 });
         }
 
-        // Find valid OTP
-        const validOtp = await prisma.oneTimePassword.findFirst({
-            where: {
-                email,
-                code: otp,
-                expiresAt: { gt: new Date() }, // Check expiry
-            },
-            orderBy: { createdAt: 'desc' }, // Get latest
-        });
+        const otpDoc = await adminDb.collection("OneTimePassword").doc(email).get();
 
-        if (!validOtp) {
-            return NextResponse.json({ message: "Invalid or expired OTP" }, { status: 400 });
+        if (!otpDoc.exists) {
+            return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
         }
 
-        // Delete used OTP (and potentially older ones for this email to clean up)
-        await prisma.oneTimePassword.deleteMany({
-            where: { email },
-        });
+        const otpData = otpDoc.data() as any;
 
-        return NextResponse.json({ message: "OTP verified successfully" });
+        // Check if expired
+        if (otpData.expiresAt.toDate() < new Date()) {
+            await adminDb.collection("OneTimePassword").doc(email).delete();
+            return NextResponse.json({ error: 'OTP expired' }, { status: 400 });
+        }
 
-    } catch (error) {
-        console.error("OTP Verification Error:", error);
-        return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+        // Check if OTP matches
+        if (otpData.otp !== otp) {
+            return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
+        }
+
+        // Success - delete OTP
+        await adminDb.collection("OneTimePassword").doc(email).delete();
+
+        return NextResponse.json({ message: 'OTP verified successfully' });
+    } catch (error: any) {
+        console.error('OTP verify error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

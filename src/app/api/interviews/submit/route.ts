@@ -1,77 +1,49 @@
-import { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { generateInterviewEvaluation } from '@/lib/interview-ai';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return new Response('Unauthorized', { status: 401 });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
-    const { 
-      interviewType, 
-      companyType, 
-      questions, 
-      answers, 
-      transcript,
-      duration 
-    } = body;
+    const { driveId, roundId, score, feedback } = body;
 
-    if (!interviewType || !companyType || !Array.isArray(questions) || !Array.isArray(answers)) {
-      return new Response('Missing required fields', { status: 400 });
-    }
+    const resultRef = adminDb.collection("InterviewResult").doc();
+    const now = admin.firestore.Timestamp.now();
 
-    // Generate AI evaluation
-    const evaluation = await generateInterviewEvaluation(
-      interviewType,
-      companyType,
-      questions,
-      answers,
-      transcript || questions.map((q: string, i: number) => `${q}\n${answers[i] || ''}`).join('\n\n')
-    );
-
-    // Create interview session in database
-    const interviewSession = await prisma.interviewSession.create({
-      data: {
-        userId: session.user.id,
-        interviewType,
-        companyType,
-        startedAt: new Date(Date.now() - (duration || 0) * 1000), // Calculate start time
-        endedAt: new Date(),
-        scores: evaluation.scores,
-        feedback: evaluation.feedback,
-        overallVerdict: evaluation.overallVerdict,
-        transcript: transcript,
-        recordingUrl: null, // In a real implementation, this would come from the recording system
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
-        }
-      }
+    await resultRef.set({
+      id: resultRef.id,
+      userId: session.user.id,
+      driveId,
+      roundId,
+      score,
+      feedback,
+      createdAt: now,
+      updatedAt: now
     });
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        interviewSessionId: interviewSession.id,
-        evaluation 
-      }), 
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  } catch (error) {
-    console.error('Error submitting interview:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    // Update round progress
+    const progressRef = adminDb.collection("MockRoundProgress").doc(`${session.user.id}_${roundId}`);
+    await progressRef.set({
+      id: progressRef.id,
+      userId: session.user.id,
+      driveId,
+      roundId,
+      status: 'completed',
+      score,
+      completedAt: now
+    }, { merge: true });
+
+    return NextResponse.json({ message: 'Interview result submitted' });
+  } catch (error: any) {
+    console.error('Interview submit error:', error);
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }

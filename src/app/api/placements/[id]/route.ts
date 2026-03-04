@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-config";
 
 export async function GET(
     request: NextRequest,
@@ -14,64 +14,79 @@ export async function GET(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Await params in Next.js 15+
         const { id } = await params;
 
-        const application = await prisma.placementApplication.findUnique({
-            where: { id },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        tenthPercentage: true,
-                        twelfthPercentage: true,
-                        graduationCGPA: true,
-                        backlogs: true,
-                        gapYears: true,
-                        gapDuringGrad: true,
-                    },
-                },
-                eligibilityCheck: true,
-                assessmentStages: {
-                    orderBy: { createdAt: "asc" },
-                    include: {
-                        test: {
-                            select: {
-                                id: true,
-                                title: true,
-                                duration: true,
-                            },
-                        },
-                    },
-                },
-                voiceAssessment: true,
-            },
-        });
+        // Fetch application document
+        const applicationDoc = await adminDb.collection("PlacementApplication").doc(id).get();
 
-        if (!application) {
+        if (!applicationDoc.exists) {
             return NextResponse.json({ error: "Application not found" }, { status: 404 });
         }
 
+        const application = { id: applicationDoc.id, ...applicationDoc.data() } as any;
+
         // Ensure user can only access their own application
-        if (application.userId !== session.user.id && session.user.role !== "admin") {
+        if (application.userId !== session.user.id && (session.user as any).role !== "admin") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        // Fetch Related Data Parallely
+        const [userDoc, eligibilitySnapshot, stagesSnapshot, voiceSnapshot] = await Promise.all([
+            adminDb.collection("User").doc(application.userId).get(),
+            adminDb.collection("EligibilityCheck").where("applicationId", "==", id).limit(1).get(),
+            adminDb.collection("AssessmentStage").where("applicationId", "==", id).orderBy("createdAt", "asc").get(),
+            adminDb.collection("VoiceAssessment").where("applicationId", "==", id).limit(1).get()
+        ]);
+
+        // Build the combined object
+        const userData = userDoc.data();
+        if (userData) {
+            application.user = {
+                id: userDoc.id,
+                name: userData.name,
+                email: userData.email,
+                tenthPercentage: userData.tenthPercentage,
+                twelfthPercentage: userData.twelfthPercentage,
+                graduationCGPA: userData.graduationCGPA,
+                backlogs: userData.backlogs,
+                gapYears: userData.gapYears,
+                gapDuringGrad: userData.gapDuringGrad,
+            };
+        }
+
+        application.eligibilityCheck = eligibilitySnapshot.empty ? null : eligibilitySnapshot.docs[0].data();
+
+        // Fetch test details for each stage
+        application.assessmentStages = await Promise.all(stagesSnapshot.docs.map(async (stageDoc) => {
+            const stageData = stageDoc.data();
+            let test = null;
+            if (stageData.testId) {
+                const testDoc = await adminDb.collection("Test").doc(stageData.testId).get();
+                if (testDoc.exists) {
+                    const td = testDoc.data();
+                    test = {
+                        id: testDoc.id,
+                        title: td?.title,
+                        duration: td?.duration
+                    };
+                }
+            }
+            return {
+                ...stageData,
+                id: stageDoc.id,
+                test
+            };
+        }));
+
+        application.voiceAssessment = voiceSnapshot.empty ? null : voiceSnapshot.docs[0].data();
+
         return NextResponse.json(application);
-    } catch (error) {
-        const { id } = await params;
+    } catch (error: any) {
         console.error("Error fetching application:", error);
-        console.error("Error details:", {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            applicationId: id
-        });
         return NextResponse.json(
             {
                 error: "Failed to fetch application",
-                details: error instanceof Error ? error.message : 'Unknown error'
+                details: error.message
             },
             { status: 500 }
         );

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -11,141 +11,73 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get top performers (users with highest average scores)
-        const topPerformers = await prisma.user.findMany({
-            where: {
-                role: 'user',
-                results: {
-                    some: {}
-                }
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                results: {
-                    select: {
-                        score: true,
-                        total: true
-                    }
-                }
+        // 1. Top Performers (Top 10 by average score across results)
+        const resultsSnapshot = await adminDb.collection("Result").get();
+        const userScores: Record<string, { total: number, count: number }> = {};
+
+        resultsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (!userScores[data.userId]) {
+                userScores[data.userId] = { total: 0, count: 0 };
             }
+            userScores[data.userId].total += data.percentage || 0;
+            userScores[data.userId].count += 1;
         });
 
-        // Calculate average scores for each user
-        const topPerformersWithStats = topPerformers
-            .map((user: any) => {
-                const totalTests = user.results.length;
-                const avgScore = totalTests > 0
-                    ? Math.round(
-                        user.results.reduce((sum: number, result: any) => {
-                            const percentage = (result.score / result.total) * 100;
-                            return sum + percentage;
-                        }, 0) / totalTests
-                    )
-                    : 0;
+        const topPerformersData = await Promise.all(
+            Object.entries(userScores)
+                .map(([userId, stats]) => ({ userId, avg: stats.total / stats.count }))
+                .sort((a, b) => b.avg - a.avg)
+                .slice(0, 10)
+                .map(async (item) => {
+                    const userDoc = await adminDb.collection("User").doc(item.userId).get();
+                    const userData = userDoc.data();
+                    return {
+                        id: item.userId,
+                        name: userData?.name || 'Unknown',
+                        averageScore: item.avg,
+                        testCount: userScores[item.userId].count
+                    };
+                })
+        );
 
-                return {
-                    id: user.id,
-                    name: user.name || user.email,
-                    tests: totalTests,
-                    avgScore
-                };
-            })
-            .filter((user: any) => user.tests > 0)
-            .sort((a: any, b: any) => b.avgScore - a.avgScore)
-            .slice(0, 10); // Top 10 performers
+        // 2. Test Success Rate (Topic-wise)
+        const testsSnapshot = await adminDb.collection("Test").get();
+        const topicAnalytics: Record<string, { totalScore: number, submissions: number }> = {};
 
-        // Get topic performance (for aptitude tests)
-        const topicTests = await prisma.test.findMany({
-            where: {
-                type: 'topic'
-            },
-            select: {
-                id: true,
-                title: true,
-                difficulty: true,
-                results: {
-                    select: {
-                        score: true,
-                        total: true
-                    }
-                }
-            }
+        resultsSnapshot.docs.forEach(doc => {
+            const rData = doc.data();
+            // We need to know the test's topic/category. 
+            // In a real scenario, we might have it in the result or fetch the test.
+            // For now, let's assume we fetch all tests once and use a map.
         });
 
-        const topicPerformance = topicTests
-            .map((test: any) => {
-                const totalAttempts = test.results.length;
-                const avgScore = totalAttempts > 0
-                    ? Math.round(
-                        test.results.reduce((sum: number, result: any) => {
-                            const percentage = (result.score / result.total) * 100;
-                            return sum + percentage;
-                        }, 0) / totalAttempts
-                    )
-                    : 0;
+        const testsMap = new Map();
+        testsSnapshot.docs.forEach(doc => testsMap.set(doc.id, doc.data()));
 
-                return {
-                    topic: test.title,
-                    avgScore,
-                    difficulty: test.difficulty || 'Medium',
-                    attempts: totalAttempts
-                };
-            })
-            .filter((topic: any) => topic.attempts > 0)
-            .sort((a: any, b: any) => b.attempts - a.attempts);
-
-        // Get company performance (for company tests)
-        const companyTests = await prisma.test.findMany({
-            where: {
-                type: 'company'
-            },
-            select: {
-                id: true,
-                title: true,
-                difficulty: true,
-                results: {
-                    select: {
-                        score: true,
-                        total: true
-                    }
-                }
+        resultsSnapshot.docs.forEach(doc => {
+            const rData = doc.data();
+            const test = testsMap.get(rData.testId);
+            const topic = test?.category || 'General';
+            if (!topicAnalytics[topic]) {
+                topicAnalytics[topic] = { totalScore: 0, submissions: 0 };
             }
+            topicAnalytics[topic].totalScore += rData.percentage || 0;
+            topicAnalytics[topic].submissions += 1;
         });
 
-        const companyPerformance = companyTests
-            .map((test: any) => {
-                const totalAttempts = test.results.length;
-                const avgScore = totalAttempts > 0
-                    ? Math.round(
-                        test.results.reduce((sum: number, result: any) => {
-                            const percentage = (result.score / result.total) * 100;
-                            return sum + percentage;
-                        }, 0) / totalAttempts
-                    )
-                    : 0;
-
-                return {
-                    company: test.title,
-                    avgScore,
-                    difficulty: test.difficulty || 'Medium',
-                    attempts: totalAttempts
-                };
-            })
-            .filter((company: any) => company.attempts > 0)
-            .sort((a: any, b: any) => b.attempts - a.attempts);
+        const performanceByTopic = Object.entries(topicAnalytics).map(([topic, stats]) => ({
+            topic,
+            averageScore: stats.totalScore / stats.submissions,
+            submissions: stats.submissions
+        }));
 
         return NextResponse.json({
-            topPerformers: topPerformersWithStats,
-            topicPerformance,
-            companyPerformance
+            topPerformers: topPerformersData,
+            performanceByTopic
         });
-    } catch (error) {
-        console.error('Analytics API error:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch analytics data' },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.error('Analytics error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

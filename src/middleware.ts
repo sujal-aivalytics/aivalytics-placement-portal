@@ -32,12 +32,17 @@ export default withAuth(
         }
 
         // Profile Completion Enforcement
-        if (isAuth && !token.isProfileComplete) {
+        if (isAuth) {
             const isProfilePage = req.nextUrl.pathname.startsWith('/dashboard/profile');
-            const isApi = req.nextUrl.pathname.startsWith('/api'); // Don't block API calls
+            const isApi = req.nextUrl.pathname.startsWith('/api');
+            const isDashboard = req.nextUrl.pathname.startsWith('/dashboard');
 
-            if (req.nextUrl.pathname.startsWith('/dashboard') && !isProfilePage && !isApi) {
-                return NextResponse.redirect(new URL('/dashboard/profile?incomplete=true', req.url));
+            // If token says incomplete, or if we want to be extra sure for dash routes
+            if (isDashboard && !isProfilePage && !isApi) {
+                if (!token.isProfileComplete) {
+                    console.log(`[MIDDLEWARE] Redirecting incomplete profile: ${token.email}, path: ${req.nextUrl.pathname}`);
+                    return NextResponse.redirect(new URL('/dashboard/profile?incomplete=true', req.url));
+                }
             }
         }
     },

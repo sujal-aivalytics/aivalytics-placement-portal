@@ -1,49 +1,85 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// GET - Fetch individual mock drive details
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { id } = await params;
-        const driveId = id;
+        if (!session?.user || session.user.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        const drive = await prisma.mockCompanyDrive.findUnique({
-            where: { id: driveId },
-            include: {
-                rounds: {
-                    orderBy: { roundNumber: 'asc' },
-                    include: {
-                        questions: true
+        const { id: driveId } = await params;
+
+        // Fetch drive
+        const driveDoc = await adminDb.collection("MockCompanyDrive").doc(driveId).get();
+        if (!driveDoc.exists) {
+            return NextResponse.json({ error: 'Mock drive not found' }, { status: 404 });
+        }
+
+        const driveData = driveDoc.data() as any;
+
+        // Fetch rounds for this drive
+        const roundsSnapshot = await adminDb.collection("MockRound")
+            .where("driveId", "==", driveId)
+            .get();
+
+        const rounds = await Promise.all(roundsSnapshot.docs
+            .map((rDoc: any) => ({ id: rDoc.id, ...(rDoc.data() as any) }))
+            .sort((a: any, b: any) => (a.roundNumber || 0) - (b.roundNumber || 0))
+            .map(async (rData: any) => {
+                // Fetch questions count for each round
+                const questionsSnapshot = await adminDb.collection("MockQuestion")
+                    .where("roundId", "==", rData.id)
+                    .get();
+
+                return {
+                    ...rData,
+                    questions: Array(questionsSnapshot.size).fill({}),
+                    _count: {
+                        questions: questionsSnapshot.size
                     }
-                }
+                };
+            }));
+
+        return NextResponse.json({
+            drive: {
+                ...driveData,
+                id: driveId,
+                rounds,
             }
         });
-
-        if (!drive) return NextResponse.json({ error: 'Drive not found' }, { status: 404 });
-
-        return NextResponse.json({ drive });
-    } catch (error) {
-        console.error('Fetch admin drive details error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error fetching admin mock drive:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// DELETE - Remove a mock drive
+export async function DELETE(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { id } = await params;
-        await prisma.mockCompanyDrive.delete({
-            where: { id }
-        });
+        if (!session?.user || session.user.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        return NextResponse.json({ success: true });
-    } catch (e) {
-        return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+        const { id: driveId } = await params;
+
+        await adminDb.collection("MockCompanyDrive").doc(driveId).delete();
+
+        return NextResponse.json({ message: 'Drive deleted successfully' });
+    } catch (error: any) {
+        console.error('Drive deletion error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

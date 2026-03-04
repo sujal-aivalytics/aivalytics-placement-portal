@@ -1,108 +1,120 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-// POST: Add a new question to the round
+// POST - Create a new question for a mock round
 export async function POST(
-    request: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string; roundId: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'admin') {
+
+        if (!session?.user || session.user.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { roundId } = await params;
-        const body = await request.json();
-
-        const { text, type, marks, points, options, codingMetadata, metadata } = body;
+        const { id: driveId, roundId } = await params;
+        const body = await req.json();
+        const { text, type, metadata } = body;
 
         if (!text || !type) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Text and type are required' }, { status: 400 });
         }
 
-        const question = await prisma.mockQuestion.create({
-            data: {
-                roundId,
-                text,
-                type,
-                points: points || marks || 1,
-                options: options || [],
-                codingMetadata: codingMetadata || (metadata ? JSON.parse(metadata) : undefined)
-            }
-        });
+        const questionRef = adminDb.collection("MockQuestion").doc();
+        const now = admin.firestore.Timestamp.now();
 
-        return NextResponse.json({ question });
-    } catch (error) {
-        console.error('Error creating question:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const questionData = {
+            id: questionRef.id,
+            roundId,
+            driveId,
+            text,
+            type,
+            metadata: typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || null),
+            createdAt: now,
+            updatedAt: now
+        };
+
+        await questionRef.set(questionData);
+
+        return NextResponse.json(questionData, { status: 201 });
+    } catch (error: any) {
+        console.error('Question creation error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-// PUT: Update an existing question
+// PUT - Update a question
 export async function PUT(
-    request: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string; roundId: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'admin') {
+
+        if (!session?.user || session.user.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const body = await request.json();
-        const { id: questionId, text, type, marks, points, options, codingMetadata, metadata } = body;
+        const body = await req.json();
+        const { id: questionId, text, type, metadata } = body;
 
         if (!questionId) {
             return NextResponse.json({ error: 'Question ID is required' }, { status: 400 });
         }
 
-        const question = await prisma.mockQuestion.update({
-            where: { id: questionId },
-            data: {
-                text,
-                type,
-                points: points || marks,
-                options: options || [],
-                codingMetadata: codingMetadata || (metadata ? JSON.parse(metadata) : undefined)
-            }
-        });
+        const questionRef = adminDb.collection("MockQuestion").doc(questionId);
+        const questionDoc = await questionRef.get();
 
-        return NextResponse.json({ question });
+        if (!questionDoc.exists) {
+            return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+        }
 
-    } catch (error) {
-        console.error('Error updating question:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const updateData: any = {
+            updatedAt: admin.firestore.Timestamp.now()
+        };
+        if (text !== undefined) updateData.text = text;
+        if (type !== undefined) updateData.type = type;
+        if (metadata !== undefined) {
+            updateData.metadata = typeof metadata === 'object' ? JSON.stringify(metadata) : metadata;
+        }
+
+        await questionRef.update(updateData);
+
+        return NextResponse.json({ message: 'Question updated successfully' });
+    } catch (error: any) {
+        console.error('Question update error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-// DELETE: Remove a question
+// DELETE - Delete a question
 export async function DELETE(
-    request: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string; roundId: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'admin') {
+
+        if (!session?.user || session.user.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const questionId = searchParams.get('questionId');
+        const { searchParams } = new URL(req.url);
+        const questionId = searchParams.get('id');
 
         if (!questionId) {
             return NextResponse.json({ error: 'Question ID is required' }, { status: 400 });
         }
 
-        await prisma.mockQuestion.delete({
-            where: { id: questionId }
-        });
+        await adminDb.collection("MockQuestion").doc(questionId).delete();
 
         return NextResponse.json({ message: 'Question deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting question:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Question deletion error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

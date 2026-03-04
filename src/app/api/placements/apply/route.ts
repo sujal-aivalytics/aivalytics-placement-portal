@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-config";
+import * as admin from 'firebase-admin';
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,17 +19,17 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if user already has an active application for this company
-        const existingApplication = await prisma.placementApplication.findFirst({
-            where: {
-                userId: session.user.id,
-                company,
-                status: {
-                    notIn: ["rejected", "withdrawn", "completed"],
-                },
-            },
-        });
+        const activeApplicationsSnapshot = await adminDb.collection("PlacementApplication")
+            .where("userId", "==", session.user.id)
+            .where("company", "==", company)
+            .get();
 
-        if (existingApplication) {
+        const activeApplications = activeApplicationsSnapshot.docs.map(doc => doc.data());
+        const hasActive = activeApplications.some(app =>
+            !["rejected", "withdrawn", "completed"].includes(app.status)
+        );
+
+        if (hasActive) {
             return NextResponse.json(
                 { error: "You already have an active application for this company" },
                 { status: 400 }
@@ -36,20 +37,24 @@ export async function POST(request: NextRequest) {
         }
 
         // Create new application
-        const application = await prisma.placementApplication.create({
-            data: {
-                userId: session.user.id,
-                company,
-                status: "eligibility_check",
-                currentStage: "eligibility",
-            },
-        });
+        const applicationRef = adminDb.collection("PlacementApplication").doc();
+        const applicationData = {
+            id: applicationRef.id,
+            userId: session.user.id,
+            company,
+            status: "eligibility_check",
+            currentStage: "eligibility",
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+        };
 
-        return NextResponse.json(application);
-    } catch (error) {
+        await applicationRef.set(applicationData);
+
+        return NextResponse.json(applicationData);
+    } catch (error: any) {
         console.error("Error creating application:", error);
         return NextResponse.json(
-            { error: "Failed to create application" },
+            { error: "Failed to create application", details: error.message },
             { status: 500 }
         );
     }

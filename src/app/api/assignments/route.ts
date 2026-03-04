@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-// GET - Get test assignments
-export async function GET(req: NextRequest) {
+// GET - List assignments (Admin check or user check)
+export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -17,71 +17,45 @@ export async function GET(req: NextRequest) {
         const userId = searchParams.get('userId');
         const testId = searchParams.get('testId');
 
-        // If admin, can view all assignments
+        let query = adminDb.collection("TestAssignment") as admin.firestore.Query;
+
         if (session.user.role === 'admin') {
-            const where: Prisma.TestAssignmentWhereInput = {};
-            if (userId) where.userId = userId;
-            if (testId) where.testId = testId;
-
-            const assignments = await prisma.testAssignment.findMany({
-                where,
-                include: {
-                    test: {
-                        select: {
-                            id: true,
-                            title: true,
-                            description: true,
-                            type: true,
-                            company: true,
-                            topic: true,
-                            difficulty: true,
-                            duration: true,
-                        }
-                    }
-                },
-                orderBy: { createdAt: 'desc' }
-            });
-
-            return NextResponse.json({ assignments });
+            if (userId) query = query.where("userId", "==", userId);
+            if (testId) query = query.where("testId", "==", testId);
+        } else {
+            query = query.where("userId", "==", session.user.id);
         }
 
-        // Regular users can only see their own assignments
-        const assignments = await prisma.testAssignment.findMany({
-            where: {
-                OR: [
-                    { userId: session.user.id },
-                    { isPublic: true }
-                ]
-            },
-            include: {
-                test: {
-                    select: {
-                        id: true,
-                        title: true,
-                        description: true,
-                        type: true,
-                        company: true,
-                        topic: true,
-                        difficulty: true,
-                        duration: true,
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+        const snapshot = await query.orderBy("createdAt", "desc").get();
 
-        return NextResponse.json({ assignments });
-    } catch (error) {
-        console.error('Error fetching assignments:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch assignments' },
-            { status: 500 }
-        );
+        const assignments = await Promise.all(snapshot.docs.map(async (doc) => {
+            const data = doc.data();
+
+            // Join Test
+            const testDoc = await adminDb.collection("Test").doc(data.testId).get();
+            const testData = testDoc.data();
+
+            // Join User
+            const userDoc = await adminDb.collection("User").doc(data.userId).get();
+            const userData = userDoc.data();
+
+            return {
+                id: doc.id,
+                ...data,
+                test: testData ? { id: testDoc.id, title: testData.title } : null,
+                user: userData ? { id: userDoc.id, name: userData.name, email: userData.email } : null
+            };
+        }));
+
+        return NextResponse.json(assignments);
+    } catch (error: any) {
+        console.error('Assignments fetch error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-// POST - Create test assignment
-export async function POST(req: NextRequest) {
+// POST - Create or Bulk create assignments
+export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -90,69 +64,48 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { testId, userIds, isPublic } = body;
+        const { userId, testId, userIds } = body; // Support single or bulk
 
-        if (!testId) {
-            return NextResponse.json({ error: 'Test ID is required' }, { status: 400 });
-        }
+        const now = admin.firestore.Timestamp.now();
+        const batch = adminDb.batch();
 
-        // If public, create a single public assignment
-        if (isPublic) {
-            const assignment = await prisma.testAssignment.create({
-                data: {
+        if (Array.isArray(userIds) && testId) {
+            userIds.forEach((uId: string) => {
+                const ref = adminDb.collection("TestAssignment").doc(`${uId}_${testId}`);
+                batch.set(ref, {
+                    id: `${uId}_${testId}`,
+                    userId: uId,
                     testId,
-                    userId: 'public', // Special marker for public tests
-                    assignedBy: session.user.id,
-                    isPublic: true,
-                },
-                include: {
-                    test: true
-                }
+                    status: 'assigned',
+                    createdAt: now,
+                    updatedAt: now
+                }, { merge: true });
             });
-
-            return NextResponse.json({ assignment });
+        } else if (userId && testId) {
+            const ref = adminDb.collection("TestAssignment").doc(`${userId}_${testId}`);
+            batch.set(ref, {
+                id: `${userId}_${testId}`,
+                userId,
+                testId,
+                status: 'assigned',
+                createdAt: now,
+                updatedAt: now
+            }, { merge: true });
+        } else {
+            return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
         }
 
-        // Otherwise, create assignments for specific users
-        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-            return NextResponse.json({ error: 'User IDs are required for non-public assignments' }, { status: 400 });
-        }
+        await batch.commit();
 
-        const assignments = await Promise.all(
-            userIds.map((userId: string) =>
-                prisma.testAssignment.upsert({
-                    where: {
-                        testId_userId: {
-                            testId,
-                            userId,
-                        }
-                    },
-                    update: {},
-                    create: {
-                        testId,
-                        userId,
-                        assignedBy: session.user.id,
-                        isPublic: false,
-                    },
-                    include: {
-                        test: true
-                    }
-                })
-            )
-        );
-
-        return NextResponse.json({ assignments });
-    } catch (error) {
-        console.error('Error creating assignment:', error);
-        return NextResponse.json(
-            { error: 'Failed to create assignment' },
-            { status: 500 }
-        );
+        return NextResponse.json({ message: 'Assignment(s) created successfully' });
+    } catch (error: any) {
+        console.error('Assignment creation error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
 
-// DELETE - Remove test assignment
-export async function DELETE(req: NextRequest) {
+// DELETE - Remove an assignment
+export async function DELETE(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -161,22 +114,17 @@ export async function DELETE(req: NextRequest) {
         }
 
         const { searchParams } = new URL(req.url);
-        const assignmentId = searchParams.get('id');
+        const id = searchParams.get('id');
 
-        if (!assignmentId) {
-            return NextResponse.json({ error: 'Assignment ID is required' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ error: 'Assignment ID required' }, { status: 400 });
         }
 
-        await prisma.testAssignment.delete({
-            where: { id: assignmentId }
-        });
+        await adminDb.collection("TestAssignment").doc(id).delete();
 
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting assignment:', error);
-        return NextResponse.json(
-            { error: 'Failed to delete assignment' },
-            { status: 500 }
-        );
+        return NextResponse.json({ message: 'Assignment deleted successfully' });
+    } catch (error: any) {
+        console.error('Assignment deletion error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

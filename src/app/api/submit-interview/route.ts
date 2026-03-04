@@ -1,64 +1,56 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
+import * as admin from 'firebase-admin';
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { type } = await req.json(); // type: 'technical' or 'hr'
+        const body = await req.json();
+        const { driveId, roundId, feedback, score, status } = body;
 
-        // Determine current round number based on type
-        // Technical = Round 2, HR = Round 3
-        const currentRoundInt = type === 'technical' ? 2 : 3;
-
-        // Find existing session
-        let driveSession = await prisma.mockDriveSession.findFirst({
-            where: {
-                userId: session.user.id,
-                company: 'TCS',
-                status: 'IN_PROGRESS'
-            }
-        });
-
-        if (!driveSession) {
-            return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        if (!driveId || !roundId) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Mark as passed (Assuming strict flow where finishing = passing for now, or user passed scores)
-        // In a real app we'd validate scores. Here we trust the client flow calling this on "End Interview".
+        const now = admin.firestore.Timestamp.now();
 
-        let updateData: any = {};
-        if (type === 'technical') {
-            updateData = {
-                currentRound: 3, // Advance to HR
-                round2Score: 85, // Mock score or pass expected score
-            };
-        } else if (type === 'hr') {
-            updateData = {
-                currentRound: 4, // Completed
-                round3Score: 90,
-                status: 'COMPLETED'
-            };
-        }
-
-        await prisma.mockDriveSession.update({
-            where: { id: driveSession.id },
-            data: updateData
+        // Save Interview Result / Session
+        const interviewRef = adminDb.collection("InterviewSession").doc();
+        await interviewRef.set({
+            id: interviewRef.id,
+            userId: session.user.id,
+            driveId,
+            roundId,
+            feedback,
+            score: Number(score || 0),
+            status: status || 'completed',
+            createdAt: now,
+            updatedAt: now
         });
 
-        return NextResponse.json({
-            success: true,
-            nextStage: type === 'technical' ? 'hr' : 'dashboard'
-        });
+        // Update Round Progress
+        const progressRef = adminDb.collection("MockRoundProgress").doc(`${session.user.id}_${roundId}`);
+        await progressRef.set({
+            id: progressRef.id,
+            userId: session.user.id,
+            driveId,
+            roundId,
+            status: status || 'completed',
+            score: Number(score || 0),
+            completedAt: now
+        }, { merge: true });
 
-    } catch (error) {
-        console.error("Interview submission error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ success: true, message: 'Interview submitted successfully' });
+
+    } catch (error: any) {
+        console.error('Interview submission error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { adminDb } from "@/lib/firebase-config";
+import * as admin from 'firebase-admin';
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -11,27 +12,35 @@ export async function GET() {
     }
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: {
-                name: true,
-                email: true,
-                image: true,
-                coverImage: true,
-                phone: true,
-                accountType: true,
-                autoPayout: true,
-                role: true,
-                graduationCGPA: true,
-                tenthPercentage: true,
-                twelfthPercentage: true,
-            }
-        });
+        const userSnapshot = await adminDb.collection("users")
+            .where("email", "==", session.user.email)
+            .limit(1)
+            .get();
 
-        if (!user) return NextResponse.json({ message: "User not found" }, { status: 404 });
+        if (userSnapshot.empty) {
+            return NextResponse.json({ message: "User not found" }, { status: 404 });
+        }
 
-        return NextResponse.json(user);
+        const userData = userSnapshot.docs[0].data();
+
+        // Pick only necessary fields (matching the previous Prisma select)
+        const profile = {
+            name: userData.name,
+            email: userData.email,
+            image: userData.image,
+            coverImage: userData.coverImage,
+            phone: userData.phone,
+            accountType: userData.accountType,
+            autoPayout: userData.autoPayout,
+            role: userData.role,
+            graduationCGPA: userData.graduationCGPA,
+            tenthPercentage: userData.tenthPercentage,
+            twelfthPercentage: userData.twelfthPercentage,
+        };
+
+        return NextResponse.json(profile);
     } catch (error) {
+        console.error("Profile Fetch Error:", error);
         return NextResponse.json({ message: "Internal Error" }, { status: 500 });
     }
 }
@@ -87,27 +96,37 @@ export async function PUT(req: Request) {
             return NextResponse.json({ message: "Validation failed", errors }, { status: 400 });
         }
 
-        const validatedCGPA = typeof cgpa === 'number' ? cgpa : undefined;
-        const validatedTenth = typeof tenth === 'number' ? tenth : undefined;
-        const validatedTwelfth = typeof twelfth === 'number' ? twelfth : undefined;
+        const validatedCGPA = typeof cgpa === 'number' ? cgpa : null;
+        const validatedTenth = typeof tenth === 'number' ? tenth : null;
+        const validatedTwelfth = typeof twelfth === 'number' ? twelfth : null;
 
-        const updatedUser = await prisma.user.update({
-            where: { email: session.user.email },
-            data: {
-                name: data.name,
-                email: data.email,
-                phone: data.phone,
-                accountType: data.accountType,
-                image: data.image,
-                coverImage: data.coverImage,
-                autoPayout: data.autoPayout,
-                graduationCGPA: validatedCGPA as number | undefined,
-                tenthPercentage: validatedTenth as number | undefined,
-                twelfthPercentage: validatedTwelfth as number | undefined,
-            }
-        });
+        const userSnapshot = await adminDb.collection("users")
+            .where("email", "==", session.user.email)
+            .limit(1)
+            .get();
 
-        return NextResponse.json(updatedUser);
+        if (userSnapshot.empty) {
+            return NextResponse.json({ message: "User not found" }, { status: 404 });
+        }
+
+        const userDoc = userSnapshot.docs[0];
+        const updateData = {
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            accountType: data.accountType,
+            image: data.image,
+            coverImage: data.coverImage,
+            autoPayout: data.autoPayout,
+            graduationCGPA: validatedCGPA,
+            tenthPercentage: validatedTenth,
+            twelfthPercentage: validatedTwelfth,
+            updatedAt: admin.firestore.Timestamp.now()
+        };
+
+        await userDoc.ref.update(updateData);
+
+        return NextResponse.json({ id: userDoc.id, ...updateData });
     } catch (error) {
         console.error("Profile Update Error:", error);
         return NextResponse.json({ message: "Failed to update profile" }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-config';
 import bcrypt from 'bcryptjs';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
     try {
@@ -14,12 +15,13 @@ export async function POST(req: Request) {
             );
         }
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
-        });
+        // Check if user already exists in Firestore
+        const existingUserSnapshot = await adminDb.collection("User")
+            .where("email", "==", email)
+            .limit(1)
+            .get();
 
-        if (existingUser) {
+        if (!existingUserSnapshot.empty) {
             return NextResponse.json(
                 { error: 'User already exists' },
                 { status: 400 }
@@ -29,40 +31,37 @@ export async function POST(req: Request) {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
-        const user = await prisma.user.create({
-            data: {
-                name,
-                email,
-                phone, // Add phone number
-                collegeName,
-                password: hashedPassword,
-                role: 'user', // Default role
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                phone: true,
-                collegeName: true,
-            },
-        });
+        // Create user in Firestore
+        const userRef = adminDb.collection("User").doc();
+        const userData = {
+            id: userRef.id,
+            name,
+            email,
+            phone,
+            collegeName,
+            password: hashedPassword,
+            role: 'user',
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+        };
+
+        await userRef.set(userData);
+
+        // Remove sensitive data before returning
+        const { password: _, ...userWithoutPassword } = userData;
 
         return NextResponse.json(
-            { message: 'User created successfully', user },
+            { message: 'User created successfully', user: userWithoutPassword },
             { status: 201 }
         );
     } catch (error) {
         console.error('Registration error:', error);
-
-        // Provide more detailed error information in development
         const errorMessage = process.env.NODE_ENV === 'development' && error instanceof Error
             ? error.message || 'Internal server error'
             : 'Internal server error';
 
         return NextResponse.json(
-            { error: errorMessage, details: (process.env.NODE_ENV === 'development' && error instanceof Error) ? error.stack : undefined },
+            { error: errorMessage },
             { status: 500 }
         );
     }

@@ -1,36 +1,57 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
 
 export async function GET(
-    request: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: driveId } = await params;
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        // Fetch Drive
+        const driveDoc = await adminDb.collection("MockCompanyDrive").doc(driveId).get();
+        if (!driveDoc.exists) {
+            return NextResponse.json({ error: 'Mock drive not found' }, { status: 404 });
         }
 
-        const { id } = await params;
+        const driveData = driveDoc.data() as any;
 
-        const drive = await prisma.mockCompanyDrive.findUnique({
-            where: { id },
-            include: {
-                _count: {
-                    select: { rounds: true }
-                }
+        // Fetch Rounds
+        const roundsSnapshot = await adminDb.collection("MockRound")
+            .where("driveId", "==", driveId)
+            .get();
+
+        const rounds = roundsSnapshot.docs
+            .map((rDoc: any) => ({ id: rDoc.id, ...rDoc.data() }))
+            .sort((a: any, b: any) => (a.roundNumber || 0) - (b.roundNumber || 0));
+
+        // Check Enrollment if logged in
+        let enrollment = null;
+        if (session?.user) {
+            const enrollmentSnapshot = await adminDb.collection("MockDriveEnrollment")
+                .where("driveId", "==", driveId)
+                .where("userId", "==", session.user.id)
+                .limit(1)
+                .get();
+
+            if (!enrollmentSnapshot.empty) {
+                enrollment = enrollmentSnapshot.docs[0].data();
+            }
+        }
+
+        return NextResponse.json({
+            drive: {
+                ...driveData,
+                id: driveId,
+                rounds,
+                enrollment
             }
         });
-
-        if (!drive) {
-            return NextResponse.json({ error: 'Drive not found' }, { status: 404 });
-        }
-
-        return NextResponse.json({ drive });
-    } catch (error) {
-        console.error('Error fetching mock drive:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Mock drive fetch error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

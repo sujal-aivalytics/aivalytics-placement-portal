@@ -1,66 +1,79 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase-config';
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
-        // 1. Total Students (Users with role 'user')
-        const totalStudents = await prisma.user.count({
-            where: { role: "user" },
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user || session.user.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Fetch counts from Firestore
+        const studentsSnapshot = await adminDb.collection("User").where("role", "==", "student").get();
+        const totalStudents = studentsSnapshot.size;
+
+        const testsSnapshot = await adminDb.collection("Test").get();
+        const totalTests = testsSnapshot.size;
+
+        const applicationsSnapshot = await adminDb.collection("PlacementApplication").get();
+        const totalApplications = applicationsSnapshot.size;
+
+        const companiesSnapshot = await adminDb.collection("Placement").get();
+        const totalCompanies = companiesSnapshot.size;
+
+        // Calculate Status Distribution
+        const statusCounts: Record<string, number> = {};
+        applicationsSnapshot.docs.forEach(doc => {
+            const status = doc.data().status || 'applied';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
         });
 
-        // 2. Total Classes (Tests count as a proxy)
-        const totalClasses = await prisma.test.count();
+        const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
+            status,
+            count
+        }));
 
-        // 3. Courses (Applications) In Progress
-        const coursesInProgress = await prisma.placementApplication.count({
-            where: {
-                status: {
-                    notIn: ["completed", "rejected", "withdrawn"],
-                },
-            },
-        });
+        // Fetch Recent Applications
+        const recentAppsSnapshot = await adminDb.collection("PlacementApplication")
+            .orderBy("createdAt", "desc")
+            .limit(5)
+            .get();
 
-        // 4. Courses (Applications) Completed
-        const coursesCompleted = await prisma.placementApplication.count({
-            where: { status: "completed" },
-        });
+        const recentApplications = await Promise.all(recentAppsSnapshot.docs.map(async (doc) => {
+            const data = doc.data();
 
-        // 5. Student Performance (Status Distribution)
-        const statusDistribution = await prisma.placementApplication.groupBy({
-            by: ["status"],
-            _count: {
-                status: true,
-            },
-        });
+            // Join User
+            const userDoc = await adminDb.collection("User").doc(data.userId).get();
+            const userData = userDoc.data();
 
-        // 6. Recent Students (Latest Applications)
-        const recentApplications = await prisma.placementApplication.findMany({
-            take: 5,
-            orderBy: { createdAt: "desc" },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        image: true,
-                        email: true,
-                    },
-                },
-            },
-        });
+            // Join Placement
+            const placementDoc = await adminDb.collection("Placement").doc(data.placementId).get();
+            const placementData = placementDoc.data();
+
+            return {
+                id: doc.id,
+                status: data.status,
+                createdAt: data.createdAt,
+                user: { name: userData?.name || 'Unknown' },
+                placement: { company: placementData?.company || 'Unknown' }
+            };
+        }));
 
         return NextResponse.json({
-            totalStudents,
-            totalClasses,
-            coursesInProgress,
-            coursesCompleted,
+            stats: {
+                totalStudents,
+                totalTests,
+                totalApplications,
+                totalCompanies
+            },
             statusDistribution,
-            recentApplications,
+            recentApplications
         });
-    } catch (error) {
-        console.error("Dashboard Stats Error:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch dashboard stats" },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.error('Admin stats error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }
