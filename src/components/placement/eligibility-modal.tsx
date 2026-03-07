@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
 import { Spinner } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { updateAcademicDetails } from "@/app/actions/placement";
+import { updateProfile } from "@/app/actions/placement";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface EligibilityModalProps {
@@ -69,11 +69,11 @@ export function EligibilityModal({ company, defaultValues, onSuccess }: Eligibil
                 backlogs: parseInt(formData.backlogs.toString())
             };
 
-            const result = await updateAcademicDetails(company, data);
+            const result = await updateProfile(data);
 
             if (result.success) {
                 toast.success("Eligibility Verified", {
-                    description: result.eligible ? "You are eligible! You can now proceed." : "Details updated. Please check requirements."
+                    description: "Details updated successfully."
                 });
                 setOpen(false);
                 onSuccess(); // Trigger router refresh or parent update

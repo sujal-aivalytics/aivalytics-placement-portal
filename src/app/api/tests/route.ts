@@ -56,7 +56,7 @@ export async function GET(req: Request) {
             }
 
             const testsSnapshot = await query.orderBy("createdAt", "desc").get();
-            let tests = testsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            let tests = testsSnapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => ({ ...doc.data(), id: doc.id }));
 
             if (excludeType) {
                 tests = tests.filter((t: any) => t.type !== excludeType);
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
                 });
 
                 if (q.options && Array.isArray(q.options)) {
-                    q.options.forEach(opt => {
+                    q.options.forEach((opt: any) => {
                         const optRef = adminDb.collection("Option").doc();
                         batch.set(optRef, {
                             questionId: qRef.id,

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import Image from 'next/image';
 import { getOrCreatePlacementApplication } from "@/app/actions/placement";
 import { Building2 } from 'lucide-react';
+import { PlacementApplication, UserProfile } from "@/types/placement";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -12,7 +13,7 @@ export default async function TCSLayout({
     children: React.ReactNode;
 }) {
     // Fetch User & Application Data
-    const { application, user } = await getOrCreatePlacementApplication("TCS");
+    const { application, user }: { application: PlacementApplication, user: UserProfile | null } = await getOrCreatePlacementApplication("TCS");
 
     // Fallback data if something fails (should ideally redirect to login, but layout needs to be robust)
     const candidateId = application?.candidateId || "Generating...";

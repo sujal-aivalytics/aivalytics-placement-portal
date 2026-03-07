@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle, ArrowRight, Play, Cpu, Code, MessageSquare } from "lucide-react";
 import { Spinner } from "@/components/ui/loader";
-import { createMockDrive } from "@/app/actions/mock-drive";
+import { startMockSession } from "@/app/actions/mock-drive";
 import { toast } from "sonner";
 
 export default function WiproMockDriveIntro() {
@@ -17,7 +17,7 @@ export default function WiproMockDriveIntro() {
     const handleStartDrive = async () => {
         setLoading(true);
         try {
-            const res = await createMockDrive("Wipro");
+            const res = await startMockSession("Wipro", "aptitude");
             if (res.success) {
                 toast.success("Exam Environment Initialized");
                 router.push(`/wipro-portal/test/aptitude?session=${res.sessionId}`);

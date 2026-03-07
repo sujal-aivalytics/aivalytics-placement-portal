@@ -26,7 +26,7 @@ export async function POST(req: Request) {
             .where("roundId", "==", roundId)
             .limit(1);
 
-        let progressDoc = (await progressQuery.get()).docs[0];
+        let progressDoc: admin.firestore.QueryDocumentSnapshot | undefined = (await progressQuery.get()).docs[0];
         let progressData: any;
 
         if (!progressDoc) {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
                 startedAt: admin.firestore.Timestamp.now(),
             };
             await progressRef.set(progressData);
-            progressDoc = await progressRef.get();
+            progressDoc = (await progressRef.get()) as admin.firestore.QueryDocumentSnapshot;
         } else {
             progressData = progressDoc.data();
         }
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
                     return { feedback: evaluation.feedback, isComplete: true };
                 });
 
-                return NextResponse.json({ question: null ...finalResult });
+                return NextResponse.json({ question: null, ...finalResult });
             }
 
             // Generate NEXT Question

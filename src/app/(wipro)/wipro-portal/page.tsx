@@ -25,7 +25,7 @@ export default async function WiproWelcomePage() {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-            {!eligibility.eligible && (
+            {!eligibility.isEligible && (
                 <Alert variant="destructive" className="border-red-600/50 bg-red-50 text-red-900 border-l-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                         <ShieldAlert className="h-4 w-4 mt-1" />
@@ -65,7 +65,7 @@ export default async function WiproWelcomePage() {
                         </p>
 
                         <div className="flex flex-wrap gap-4 pt-4">
-                            {eligibility.eligible ? (
+                            {eligibility.isEligible ? (
                                 <Link href="/wipro-portal/instructions">
                                     <Button className="h-12 px-8 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-lg hover:shadow-xl transition-all">
                                         Start Assessment <ArrowRight className="ml-2 w-4 h-4" />

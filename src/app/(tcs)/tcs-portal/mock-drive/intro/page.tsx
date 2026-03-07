@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock, Play, Zap, BrainCircuit, UserCircle2, ChevronRight, LockOpen, Sparkles } from "lucide-react";
-import { createMockDrive, getMockDriveStatus } from "@/app/actions/mock-drive";
+import { startMockSession, getMockDriveStatus } from "@/app/actions/mock-drive";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
@@ -48,7 +48,7 @@ export default function TCSMockDriveIntro() {
     const handleStartDrive = async () => {
         setLoading(true);
         try {
-            const res = await createMockDrive("TCS");
+            const res = await startMockSession("TCS", "aptitude");
             if (res.success) {
                 toast.success("Exam Environment Initialized");
                 router.push(`/tcs-portal/test/aptitude?session=${res.sessionId}`);
