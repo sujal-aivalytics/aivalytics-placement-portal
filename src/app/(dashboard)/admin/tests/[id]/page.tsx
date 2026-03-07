@@ -1,3 +1,4 @@
+import { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-config";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -26,7 +27,7 @@ export default async function AdminTestPage({
         .orderBy("order", "asc")
         .get();
 
-    const subtopics = await Promise.all(subtopicsSnapshot.docs.map(async (doc) => {
+    const subtopics = await Promise.all(subtopicsSnapshot.docs.map(async (doc: QueryDocumentSnapshot) => {
         const questionsSnapshot = await adminDb.collection("Question")
             .where("subtopicId", "==", doc.id)
             .get();

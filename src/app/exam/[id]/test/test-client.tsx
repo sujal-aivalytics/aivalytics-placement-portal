@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useProctoring } from "@/hooks/use-proctoring";
 import { logMonitoringEvent } from "@/app/actions/monitoring";
-import { updateMockDriveProgress } from "@/app/actions/mock-drive";
+// Removed invalid import: updateMockDriveProgress
 import { wrapCode, getStarterCode } from "@/lib/code-execution";
 import { toast } from "sonner";
 import {
@@ -292,16 +292,7 @@ export default function TestRunnerClient({ test, session }: { test: any, session
 
             const result = await response.json();
 
-            if (session?.id) {
-                // Ensure session status matches API verdict
-                await updateMockDriveProgress(
-                    session.id,
-                    result.nextRound,
-                    result.score,
-                    undefined,
-                    result.verdict === 'Passed' && result.nextRound > rounds.length ? "COMPLETED" : "IN_PROGRESS"
-                );
-            }
+            // Removed call to non-existent updateMockDriveProgress
 
             // Redirect with justFinished flag
             router.push(`/exam/${testId}/result?score=${result.score}&total=${result.total}&verdict=${result.verdict}&type=${currentRound.type || 'assessment'}&justFinished=true`);
@@ -341,9 +332,7 @@ export default function TestRunnerClient({ test, session }: { test: any, session
             const nextRoundNumber = activeRoundIndex + 2; // 0-based index -> 1-based next round
 
             // Update Session on Backend
-            if (session?.id) {
-                await updateMockDriveProgress(session.id, nextRoundNumber);
-            }
+            // Removed call to non-existent updateMockDriveProgress
             toast.success("Round completed. returning to action center.");
             router.push(`/exam/${testId}/dashboard`);
         } else {

@@ -1,3 +1,4 @@
+import { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-config";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -30,7 +31,7 @@ export default async function MockFinalReportPage({
         .where("driveId", "==", driveId)
         .get();
 
-    const progressList = progressSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const progressList = progressSnapshot.docs.map((doc: QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
 
     // 3. Fetch Drive details
     const driveDoc = await adminDb.collection("MockCompanyDrive").doc(driveId).get();

@@ -35,6 +35,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ['firebase-admin'],
   async redirects() {
     return [
       {

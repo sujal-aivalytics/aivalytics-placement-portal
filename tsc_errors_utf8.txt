@@ -1,0 +1,7 @@
+﻿src/app/api/mock-drives/session/interview/submit/route.ts(42,13): error TS2322: Type 'DocumentSnapshot<DocumentData, DocumentData>' is not assignable to type 'QueryDocumentSnapshot<DocumentData, DocumentData>'.
+  Types of property 'createTime' are incompatible.
+    Type 'Timestamp | undefined' is not assignable to type 'Timestamp'.
+      Type 'undefined' is not assignable to type 'Timestamp'.
+src/app/api/tests/route.ts(59,48): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/app/api/tests/route.ts(137,39): error TS7006: Parameter 'opt' implicitly has an 'any' type.
+src/app/exam/[id]/eligibility/eligibility-client.tsx(10,10): error TS2305: Module '"@/app/actions/eligibility"' has no exported member 'saveEligibility'.

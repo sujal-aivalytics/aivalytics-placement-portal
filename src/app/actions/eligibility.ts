@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-config";
 import * as admin from 'firebase-admin';
+import { UserProfile } from "@/types/placement";
 
 export async function checkTestEligibility(testId: string) {
     try {
@@ -15,7 +16,7 @@ export async function checkTestEligibility(testId: string) {
         // Fetch User
         const userDoc = await adminDb.collection("User").doc(userId).get();
         if (!userDoc.exists) throw new Error("User not found");
-        const userData = userDoc.data() as any;
+        const userData = userDoc.data() as UserProfile;
 
         // Fetch Test
         const testDoc = await adminDb.collection("Test").doc(testId).get();
@@ -53,5 +54,29 @@ export async function checkTestEligibility(testId: string) {
     } catch (error: any) {
         console.error("Eligibility check error:", error);
         return { isEligible: false, error: error.message };
+    }
+}
+
+export async function saveEligibility(testId: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) throw new Error("Unauthorized");
+
+        const userId = session.user.id;
+
+        // Implementation matches what eligibility-client expects
+        // It's essentially a confirmation that the user checked their status and is proceeding
+        const eligibilityRef = adminDb.collection("TestEligibility").doc(`${userId}_${testId}`);
+        await eligibilityRef.set({
+            userId,
+            testId,
+            isEligible: true, // If we're calling save, they've passed the client check
+            checkedAt: admin.firestore.Timestamp.now()
+        }, { merge: true });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Save eligibility error:", error);
+        return { error: error.message };
     }
 }

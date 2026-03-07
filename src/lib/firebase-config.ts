@@ -1,3 +1,4 @@
+import 'server-only';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -94,8 +95,8 @@ function createProxy(serviceName: 'firestore' | 'auth' | 'storage') {
     });
 }
 
-export const adminDb = createProxy('firestore');
-export const adminAuth = createProxy('auth');
-export const adminStorage = createProxy('storage');
+export const adminDb = createProxy('firestore') as unknown as admin.firestore.Firestore;
+export const adminAuth = createProxy('auth') as unknown as admin.auth.Auth;
+export const adminStorage = createProxy('storage') as unknown as admin.storage.Storage;
 
 export default app;
