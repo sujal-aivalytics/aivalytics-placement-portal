@@ -24,10 +24,10 @@ const SubjectsGrid = () => {
                         <BookOpen className="w-4 h-4" />
                         Comprehensive Curriculum
                     </div>
-                    <h2 className="text-4xl md:text-5xl font-extrabold text-white">
-                        Programming/CS <span className="text-emerald-500">Subject</span>
+                    <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900">
+                        Programming & CS <span className="text-primary italic">Syllabus</span>
                     </h2>
-                    <p className="text-lg text-gray-300 font-medium">
+                    <p className="text-lg text-gray-500 font-medium pt-4">
                         Competitive Coding, Basic / Advanced Coding, Top Codes, of Languages like - C/C++/Java or CS Subjects Like OS, DBMS etc
                     </p>
                 </ScrollAnimation>

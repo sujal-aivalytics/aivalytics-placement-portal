@@ -16,17 +16,17 @@ export const CompanyTicker = () => {
     const duplicatedCompanies = [...companies, ...companies, ...companies, ...companies];
 
     return (
-        <div className="w-full overflow-hidden py-12 border-y border-white/5 bg-white/5 backdrop-blur-sm relative z-10">
+        <div className="w-full overflow-hidden py-12 border-y border-gray-100 bg-white relative z-10">
             <div className="container mx-auto px-4 text-center">
-                <p className="text-sm mb-5 font-bold text-emerald-400 tracking-widest uppercase">
+                <p className="text-sm mb-8 font-black text-gray-400 tracking-[0.2em] uppercase">
                     Top Companies Hiring Preparation
                 </p>
             </div>
 
             <div className="relative flex">
                 {/* Gradient Masks */}
-                <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-r from-[#020617] to-transparent z-10" />
-                <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-l from-[#020617] to-transparent z-10" />
+                <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
 
                 <motion.div
                     className="flex items-center gap-12 md:gap-20 px-4"
