@@ -1,0 +1,424 @@
+.jiraPage {
+  /* 109 Colors */
+  --color-white: #ffffff;
+  --color-white-smoke: #f1f2f4;
+  --color-white-smoke-1: #ffecf8;
+  --color-white-smoke-2: #f7f8f9;
+  --color-white-smoke-3: #f8f8f8;
+  --color-lavender: #c6edfb;
+  --color-lavender-1: #cce0ff;
+  --color-lavender-2: #dfd8fd;
+  --color-linen: #fdd0ec;
+  --color-linen-1: #ffeceb;
+  --color-pink: #ffd5d2;
+  --color-old-lace: #fff7d6;
+  --color-old-lace-1: #efffd6;
+  --color-old-lace-2: #fff3eb;
+  --color-azure: #dcfff1;
+  --color-alice-blue: #e7f9ff;
+  --color-alice-blue-1: #e9f2ff;
+  --color-alice-blue-2: #f3f0ff;
+  --color-gainsboro: #baf3db;
+  --color-gainsboro-1: #dddee1;
+  --color-gainsboro-2: #dcdfe4;
+  --color-wheat: #d3f1a7;
+  --color-wheat-1: #f8e6a0;
+  --color-wheat-2: #fedec8;
+  --color-light-steel-blue: #b8acf6;
+  --color-silver: #b3b9c4;
+  --color-sky-blue: #6cc3e0;
+  --color-sky-blue-1: #85b8ff;
+  --color-sky-blue-2: #9dd9ee;
+  --color-medium-purple: #6e5dc6;
+  --color-medium-purple-1: #8270db;
+  --color-medium-purple-2: #8f7ee7;
+  --color-medium-purple-3: #9f8fef;
+  --color-plum: #f797d2;
+  --color-light-salmon: #fd9891;
+  --color-burlywood: #fec195;
+  --color-dark-gray: #1e1f21;
+  --color-dark-gray-1: #1f1f21;
+  --color-dark-gray-2: #091e42;
+  --color-dark-gray-3: #533f04;
+  --color-dark-gray-4: #292a2e;
+  --color-dark-gray-5: #1c2b41;
+  --color-dark-gray-6: #1c2b42;
+  --color-dark-gray-7: #3d2232;
+  --color-dark-gray-8: #172b4d;
+  --color-dark-gray-9: #37471f;
+  --color-dark-gray-10: #5d1f1a;
+  --color-dark-gray-11: #a9abaf;
+  --color-dark-khaki: #94c748;
+  --color-dark-khaki-1: #b3df72;
+  --color-light-green: #7ee2b8;
+  --color-hot-pink: #da62ac;
+  --color-hot-pink-1: #e774bb;
+  --color-tomato: #e2483d;
+  --color-tomato-1: #ef5c48;
+  --color-tomato-2: #f15b50;
+  --color-salmon: #f87168;
+  --color-salmon-1: #fea362;
+  --color-pastel-orange: #f5cd47;
+  --color-royal-blue: #0055cc;
+  --color-royal-blue-1: #0c66e4;
+  --color-royal-blue-2: #1868db;
+  --color-royal-blue-3: #1d7afc;
+  --color-royal-blue-4: #388bff;
+  --color-cornflower-blue: #579dff;
+  --color-light-slate-gray: #8590a2;
+  --color-slate-gray: #626f86;
+  --color-slate-gray-1: #758195;
+  --color-steel-blue: #5e4db2;
+  --color-cadet-blue: #4bce97;
+  --color-medium-orchid: #cd519d;
+  --color-dim-gray: #943d73;
+  --color-indian-red: #ae4787;
+  --color-fire-brick: #7f5f01;
+  --color-fire-brick-1: #ae2e24;
+  --color-fire-brick-2: #946f00;
+  --color-fire-brick-3: #c25100;
+  --color-fire-brick-4: #a54800;
+  --color-fire-brick-5: #c9372c;
+  --color-light-sea-green: #2898bd;
+  --color-orange: #cf9f02;
+  --color-orange-1: #e2b203;
+  --color-orange-2: #e56910;
+  --color-charcoal: #50253f;
+  --color-charcoal-1: #665533;
+  --color-charcoal-2: #4b4d51;
+  --color-charcoal-3: #505258;
+  --color-dark-slate-gray: #164b35;
+  --color-dark-slate-gray-1: #164555;
+  --color-dark-slate-gray-2: #2c3e5d;
+  --color-dark-slate-gray-3: #216e4e;
+  --color-dark-slate-gray-4: #44546f;
+  --color-dark-slate-gray-5: #42526e;
+  --color-forest-green: #4c6b1f;
+  --color-forest-green-1: #5b7f24;
+  --color-forest-green-2: #6a9a23;
+  --color-teal: #206a83;
+  --color-teal-1: #227d9b;
+  --color-teal-2: #1f845a;
+  --color-teal-3: #22a06b;
+  --color-dark-orange: #b38600;
+  --color-midnight-blue: #09326c;
+  --color-midnight-blue-1: #352c63;
+  --color-dark-red: #550000;
+  --color-dark-red-1: #660000;
+  --color-dark-red-2: #702e00;
+  --color-black: #000000;
+  --color-black-1: #101214;
+  --color-black-2: #440000;
+
+  /* Gradients */
+  --gradient-linear: linear-gradient(#f8f8f8 200px, #ffffff 200px);
+  --gradient-linear-1: linear-gradient(1deg, #000000, #000000 45%, #f8f8f8 45.1%, #f8f8f8);
+
+  /* Fonts */
+  --font-charlie-display: 'Charlie Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-charlie-text: 'Charlie Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --text-24: 24px;
+  --text-36: 36px;
+  --text-40: 40px;
+  --text-48: 48px;
+  --text-56: 56px;
+  --tracking-0-288: 0.288px;
+  --tracking-0-42: 0.42px;
+}
+
+/* Typography styles */
+.type-h1 {
+  font-family: var(--font-charlie-display);
+  font-size: var(--text-56);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-dark-gray-8);
+}
+
+.type-h2 {
+  font-family: var(--font-charlie-display);
+  font-size: var(--text-40);
+  font-weight: 700;
+  line-height: 1.20;
+  color: var(--color-dark-gray-8);
+}
+
+.type-h2-36 {
+  font-family: var(--font-charlie-display);
+  font-size: var(--text-36);
+  font-weight: 700;
+  line-height: 1.17;
+  color: var(--color-dark-gray-8);
+}
+
+.type-h3 {
+  font-family: var(--font-charlie-display);
+  font-size: var(--text-24);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-dark-gray-8);
+}
+
+.type-heading {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-24);
+  font-weight: 400;
+  line-height: normal;
+  color: var(--color-dark-gray-8);
+}
+
+.type-link {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-20);
+  font-weight: 500;
+  line-height: 1.20;
+  color: var(--color-dark-gray-8);
+}
+
+.type-body {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-20);
+  font-weight: 400;
+  line-height: 1.20;
+  color: var(--color-dark-gray-8);
+}
+
+.type-body-16 {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: normal;
+  color: var(--color-dark-gray-8);
+}
+
+.type-body-16-400 {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-16);
+  font-weight: 400;
+  line-height: 1.50;
+  letter-spacing: var(--tracking-0-288);
+  color: var(--color-slate-gray-1); /* lighter gray for paragraphs */
+}
+
+.type-link-14 {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-14);
+  font-weight: 700;
+  line-height: 1.00;
+}
+
+.type-button {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-14);
+  font-weight: 600;
+  line-height: 2.29;
+}
+
+.type-link-14-500 {
+  font-family: var(--font-charlie-display);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: var(--tracking-0-42);
+}
+
+.type-link-14-400 {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-14);
+  font-weight: 400;
+  line-height: 1.00;
+  letter-spacing: var(--tracking-0-42);
+}
+
+.type-h2-13 {
+  font-family: var(--font-charlie-text);
+  font-size: var(--text-13);
+  font-weight: 700;
+  line-height: normal;
+}
+
+/* Custom layout classes utilizing the theme */
+.jiraApp {
+  background-color: var(--color-white);
+  color: var(--color-dark-gray-8);
+  min-height: 100vh;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background-color: var(--color-white);
+  box-shadow: 0 4px 8px rgba(9, 30, 66, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.navLinks {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.navLink {
+  color: var(--color-dark-slate-gray-5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.2s ease;
+}
+
+.navLink:hover {
+  color: var(--color-royal-blue-1);
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ctaButton {
+  background-color: var(--color-royal-blue-1);
+  color: var(--color-white);
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ctaButton:hover {
+  background-color: var(--color-royal-blue-2);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5rem 10%;
+  background: var(--color-white);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.heroLeft {
+  flex: 1;
+  max-width: 500px;
+}
+
+.heroHeadline {
+  margin-bottom: 1.5rem;
+}
+
+.heroSub {
+  margin-bottom: 2.5rem;
+}
+
+.heroRight {
+  flex: 1.2;
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.featureSection {
+  text-align: center;
+  padding: 4rem 2rem;
+  background-color: var(--color-white);
+}
+
+.featureImagePlaceholder {
+  width: 100%;
+  max-width: 900px;
+  height: 500px;
+  background-color: var(--color-white-smoke-2);
+  border: 1px solid var(--color-gainsboro-1);
+  border-radius: 8px;
+  margin: 2rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-slate-gray);
+  box-shadow: 0 10px 30px rgba(9, 30, 66, 0.08);
+}
+
+/* Blue Block Section */
+.blueSection {
+  background-color: var(--color-royal-blue-1);
+  color: var(--color-white);
+  padding: 4rem 10%;
+  text-align: left;
+  position: relative;
+  margin-top: 2rem;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.blueSection h2, .blueSection p {
+  color: var(--color-white);
+  z-index: 10;
+}
+
+.blueCardsRow {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-top: 3rem;
+  z-index: 10;
+}
+
+/* Specific background blocks based on the images */
+.greenSection {
+  background-color: var(--color-dark-khaki);
+  color: var(--color-dark-gray-8);
+  padding: 4rem 10%;
+  margin-top: 4rem;
+  min-height: 400px;
+}
+
+.yellowSection {
+  background-color: var(--color-wheat-1);
+  color: var(--color-dark-gray-8);
+  padding: 4rem 10%;
+  margin-top: 4rem;
+  min-height: 400px;
+}
+
+.cardWhite {
+  background-color: var(--color-white);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(9, 30, 66, 0.1);
+  flex: 1;
+  min-width: 300px;
+  color: var(--color-dark-gray-8);
+}
+
+.cardWhite img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-gainsboro-1);
+}
+
+.logoIcon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-dark-gray-8);
+}

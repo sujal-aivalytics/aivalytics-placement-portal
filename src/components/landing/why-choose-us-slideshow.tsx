@@ -6,17 +6,17 @@ import Image from "next/image";
 
 const slides = [
     {
-        src: "/images/students_collaborating.png",
+        src: "/jira/WEBP/collaborate-share-key-resources.webp",
         title: "Collaborative Learning",
         subtitle: "Work together with peers to solve complex problems and grow collectively."
     },
     {
-        src: "/images/students_learning.png",
+        src: "/jira/WEBP/collaborate-automate-workflows.webp",
         title: "Interactive Sessions",
         subtitle: "Engage in real-time discussions with industry experts and mentors."
     },
     {
-        src: "/images/students_seminar.png",
+        src: "/jira/WEBP/jswf-collaborate-streamline-requests-2.webp",
         title: "Expert Seminars",
         subtitle: "Attend high-impact seminars that bridge the gap between AiValytics and industry."
     }
