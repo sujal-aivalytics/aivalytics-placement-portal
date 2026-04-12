@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 interface EligibilityClientProps {
     testId: string;
-    testTitle: string;
+    testTitle?: string;
     criteria?: {
         tenthPercentage?: number;
         twelfthPercentage?: number;
@@ -21,7 +21,7 @@ interface EligibilityClientProps {
     } | null;
 }
 
-export default function EligibilityClient({ testId, criteria }: EligibilityClientProps) {
+export default function EligibilityClient({ testId, testTitle, criteria }: EligibilityClientProps) {
     const router = useRouter();
 
     const [form, setForm] = useState({
