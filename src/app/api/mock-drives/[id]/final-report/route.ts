@@ -36,7 +36,7 @@ export async function GET(
             .orderBy("roundNumber", "asc")
             .get();
 
-        const rounds = roundsSnapshot.docs.map(doc => ({
+        const rounds = roundsSnapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data()
         }));
@@ -47,19 +47,19 @@ export async function GET(
             .where("driveId", "==", driveId)
             .get();
 
-        const progressList = progressSnapshot.docs.map(doc => ({
+        const progressList = progressSnapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data()
         }));
 
         // 5. Merge rounds with progress
-        const roundResults = rounds.map(round => {
+        const roundResults = rounds.map((round: any) => {
             const progress = progressList.find((p: any) => p.roundId === round.id);
             return {
                 id: progress?.id || round.id,
                 roundId: round.id,
-                roundTitle: round.title,
-                roundType: round.type,
+                roundTitle: round.title || "Round",
+                roundType: round.type || "mcq",
                 score: progress?.score || 0,
                 totalQuestions: progress?.totalQuestions || 0,
                 answeredQuestions: progress?.answeredQuestions || 0,
@@ -70,11 +70,12 @@ export async function GET(
         });
 
         // 6. Build the final report
+        const driveData = drive || { title: "Drive", companyName: "Company" };
         const report = {
             id: enrollment.id,
             driveId: driveId,
-            driveTitle: drive.title || `${drive.companyName} Drive`,
-            companyName: drive.companyName || "Company",
+            driveTitle: driveData.title || `${driveData.companyName} Drive`,
+            companyName: driveData.companyName || "Company",
             overallScore: enrollment.overallScore || 0,
             status: enrollment.status || "IN_PROGRESS",
             completedAt: enrollment.completedAt?.toDate?.() || enrollment.completedAt,
