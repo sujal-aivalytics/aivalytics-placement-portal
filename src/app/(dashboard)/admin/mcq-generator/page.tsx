@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, Upload, Download, FileText, Loader2, Brain } from "lucide-react";
+import { Copy, Upload, Download, FileText, Loader2, Brain, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function MCQGeneratorPage() {
