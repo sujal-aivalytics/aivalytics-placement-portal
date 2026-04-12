@@ -155,6 +155,12 @@ export function MCQInterface({ round, enrollment }: MCQInterfaceProps) {
 
         setSubmitting(true);
         try {
+            console.log("Submitting test:", {
+                enrollmentId: enrollment.id,
+                roundId: round.id,
+                answersCount: Object.keys(answers).length
+            });
+
             const res = await fetch(`/api/mock-drives/session/mcq/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -165,13 +171,20 @@ export function MCQInterface({ round, enrollment }: MCQInterfaceProps) {
                 })
             });
 
-            if (!res.ok) throw new Error("Submission Failed");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error("Submit failed:", res.status, errorData);
+                throw new Error(errorData.error || errorData.details || `Submission Failed (${res.status})`);
+            }
+
+            const result = await res.json();
+            console.log("Submit success:", result);
 
             setIsCompleted(true);
             toast.success("Test Submitted Successfully!");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Submit error", error);
-            toast.error("Failed to submit test. Please try again.");
+            toast.error(error.message || "Failed to submit test. Please try again.");
             setSubmitting(false);
         }
     };
