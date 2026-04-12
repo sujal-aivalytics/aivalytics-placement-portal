@@ -14,7 +14,13 @@ export async function POST(req: Request) {
         const { enrollmentId, roundId, answers } = body;
 
         if (!enrollmentId || !roundId || !answers) {
-            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+            console.error('Missing fields:', { enrollmentId, roundId, hasAnswers: !!answers });
+            return NextResponse.json({ error: 'Missing fields', received: { enrollmentId, roundId, answersType: typeof answers } }, { status: 400 });
+        }
+
+        if (typeof answers !== 'object' || Array.isArray(answers)) {
+            console.error('Invalid answers format:', typeof answers);
+            return NextResponse.json({ error: 'Answers must be an object', received: typeof answers }, { status: 400 });
         }
 
         // 1. Fetch Round and Questions
@@ -24,11 +30,18 @@ export async function POST(req: Request) {
         }
         const roundData = roundDoc.data() as any;
 
+        console.log(`Found round: ${roundData.title}, fetching questions...`);
+
         const questionsSnapshot = await adminDb.collection("MockQuestion")
             .where("roundId", "==", roundId)
             .get();
 
         const questions = questionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        console.log(`Found ${questions.length} questions`);
+
+        if (questions.length === 0) {
+            return NextResponse.json({ error: 'No questions found for this round' }, { status: 404 });
+        }
 
         const responsesData: any[] = [];
         let score = 0;
@@ -75,6 +88,8 @@ export async function POST(req: Request) {
         const normalizedScore = percentage;
         const isPassed = percentage >= 60;
 
+        console.log(`Processing ${questions.length} questions, ${Object.keys(answers).length} answers provided`);
+
         // Generate AI Evaluation
         const aiEvaluation = await generateMCQEvaluation(
             percentage,
@@ -82,6 +97,8 @@ export async function POST(req: Request) {
             categoryResults,
             roundData.title || 'MCQ Round'
         );
+
+        console.log(`Saving results: score=${score}, correct=${correctCount}/${totalQuestionsCount}, passed=${isPassed}`);
 
         // Transaction for atomic updates
         await adminDb.runTransaction(async (transaction) => {
@@ -164,10 +181,12 @@ export async function POST(req: Request) {
             }
         });
 
+        console.log('Submission saved successfully');
         return NextResponse.json({ success: true, score, isPassed });
 
     } catch (error: any) {
-        console.error('MCQ Submit Error:', error);
+        console.error('MCQ Submit Error:', error.message);
+        console.error('Stack:', error.stack);
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }
