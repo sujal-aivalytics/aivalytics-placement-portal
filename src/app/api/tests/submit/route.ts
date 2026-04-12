@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
         try {
             if (process.env.GEMINI_API_KEY) {
-                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
                 const percentage = (score / total) * 100;
                 const correctAnswers = score;

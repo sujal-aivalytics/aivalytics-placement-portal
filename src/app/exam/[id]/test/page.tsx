@@ -2,6 +2,7 @@ import { adminDb } from "@/lib/firebase-config";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import TestRunnerClient from "./test-client";
 
 export default async function TestTakingPage({
     params,
@@ -66,11 +67,14 @@ export default async function TestTakingPage({
         .limit(1)
         .get();
 
-    const activeSession = sessionSnapshot.empty ? null : { id: sessionSnapshot.docs[0].id, ...sessionSnapshot.docs[0].data() };
+    const activeSession = sessionSnapshot.empty 
+        ? null 
+        : { id: sessionSnapshot.docs[0].id, ...sessionSnapshot.docs[0].data() };
 
     return (
-        <div className="min-h-screen bg-background">
-            {/* ... Render Test Interface with testData, subtopics, and activeSession ... */}
-        </div>
+        <TestRunnerClient 
+            test={{ ...testData, id, subtopics }} 
+            session={activeSession} 
+        />
     );
 }

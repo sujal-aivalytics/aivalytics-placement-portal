@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Test {
@@ -45,16 +46,20 @@ interface Subtopic {
 }
 
 export default function AdminSubtopicsPage() {
+  const searchParams = useSearchParams();
+  const queryTestId = searchParams.get('testId');
+  const querySubtopicId = searchParams.get('subtopicId');
+
   const [tests, setTests] = useState<Test[]>([]);
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
-  const [selectedTest, setSelectedTest] = useState<string>('');
+  const [selectedTest, setSelectedTest] = useState<string>(queryTestId || '');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [selectedSubtopic, setSelectedSubtopic] = useState<string | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(!!querySubtopicId);
+  const [selectedSubtopic, setSelectedSubtopic] = useState<string | null>(querySubtopicId);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -228,7 +233,7 @@ export default function AdminSubtopicsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Subtopics & Questions</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Resource Bank</h1>
           <p className="text-gray-500 mt-1">Manage subtopics and upload questions for your tests</p>
         </div>
         <div className="flex gap-2">
@@ -466,18 +471,18 @@ export default function AdminSubtopicsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="subtopic">Select Subtopic *</Label>
-              <Select value={selectedSubtopic || ''} onValueChange={setSelectedSubtopic}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a subtopic..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {subtopics.map((subtopic) => (
-                    <SelectItem key={subtopic.id} value={subtopic.id}>
-                      {subtopic.name} ({subtopic.totalQuestions} questions)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select value={selectedSubtopic || 'none'} onValueChange={(val) => setSelectedSubtopic(val === 'none' ? null : val)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a subtopic..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subtopics.map((subtopic) => (
+                      <SelectItem key={subtopic.id} value={subtopic.id}>
+                        {subtopic.name} ({subtopic.totalQuestions} questions)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="file">CSV File *</Label>

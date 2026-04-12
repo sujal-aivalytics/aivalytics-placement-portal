@@ -3,7 +3,7 @@ import { adminDb } from '@/lib/firebase-config';
 
 export async function GET() {
     try {
-        const usersSnapshot = await adminDb.collection("User").get();
+        const usersSnapshot = await adminDb.collection("users").get();
         const userCount = usersSnapshot.size;
         const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 

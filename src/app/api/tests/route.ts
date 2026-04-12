@@ -22,13 +22,12 @@ export async function GET(req: Request) {
             // Get questions for this test
             const questionsSnapshot = await adminDb.collection("Question")
                 .where("testId", "==", testId)
-                .orderBy("order", "asc")
                 .get();
 
-            const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+            let questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
                 const qData = qDoc.data();
                 // Get options for each question
-                const optionsSnapshot = await adminDb.collection("Option")
+                const optionsSnapshot = await adminDb.collection("options")
                     .where("questionId", "==", qDoc.id)
                     .get();
 
@@ -38,6 +37,9 @@ export async function GET(req: Request) {
                     options: optionsSnapshot.docs.map(oDoc => ({ ...oDoc.data(), id: oDoc.id }))
                 };
             }));
+
+            // In-memory sort by 'order'
+            (questions as any[]).sort((a, b) => (a.order || 0) - (b.order || 0));
 
             return NextResponse.json({
                 test: { ...testData, id: testDoc.id, questions }
@@ -55,12 +57,19 @@ export async function GET(req: Request) {
                 // Alternatively, we filter in JS
             }
 
-            const testsSnapshot = await query.orderBy("createdAt", "desc").get();
+            const testsSnapshot = await query.get();
             let tests = testsSnapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => ({ ...doc.data(), id: doc.id }));
 
             if (excludeType) {
                 tests = tests.filter((t: any) => t.type !== excludeType);
             }
+
+            // In-memory sort by createdAt (descending) as default to avoid composite index requirements
+            tests.sort((a: any, b: any) => {
+                const dateA = a.createdAt?.seconds || 0;
+                const dateB = b.createdAt?.seconds || 0;
+                return dateB - dateA;
+            });
 
             // For each test, get the question count
             // (In a real app, we should store questionCount on the Test document)
@@ -135,7 +144,7 @@ export async function POST(req: Request) {
 
                 if (q.options && Array.isArray(q.options)) {
                     q.options.forEach((opt: any) => {
-                        const optRef = adminDb.collection("Option").doc();
+                        const optRef = adminDb.collection("options").doc();
                         batch.set(optRef, {
                             questionId: qRef.id,
                             text: opt.text,
@@ -186,7 +195,7 @@ export async function DELETE(req: Request) {
         const batch = adminDb.batch();
 
         for (const qDoc of questionsSnapshot.docs) {
-            const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", qDoc.id).get();
+            const optionsSnapshot = await adminDb.collection("options").where("questionId", "==", qDoc.id).get();
             optionsSnapshot.docs.forEach(oDoc => batch.delete(oDoc.ref));
             batch.delete(qDoc.ref);
         }

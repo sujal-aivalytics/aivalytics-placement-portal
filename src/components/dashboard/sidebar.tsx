@@ -26,6 +26,7 @@ import {
   Code,
   Brain,
   User,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -138,12 +139,13 @@ const SidebarContent = ({
   const adminLinks = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/mcq-generator", label: "MCQ Engine", icon: Brain },
-    { href: "/admin/problems", label: "Registry", icon: FileQuestion },
-    { href: "/admin/tests", label: "Curriculum", icon: GraduationCap },
-    { href: "/admin/subtopics", label: "Modules", icon: BookOpen },
+    { href: "/admin/problems", label: "Coding", icon: FileQuestion },
+    { href: "/admin/tests", label: "Curriculum Management", icon: GraduationCap },
+    { href: "/admin/subtopics", label: "Resource Bank", icon: BookOpen },
     { href: "/admin/mock-drives", label: "Drives", icon: MonitorPlay },
     { href: "/admin/users", label: "Members", icon: Users },
     { href: "/admin/analytics", label: "Intelligence", icon: BarChart3 },
+    { href: "/admin/local-data", label: "Local Storage", icon: Database },
     { href: "/dashboard/profile", label: "Settings", icon: Settings },
   ];
 

@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
         const autosaveResult = await adminDb.runTransaction(async (transaction) => {
             // 1. READS FIRST
-            const progressQuery = adminDb.collection("MockRoundProgress")
+            const progressQuery = adminDb.collection("mockRoundProgress")
                 .where("enrollmentId", "==", enrollmentId)
                 .where("roundId", "==", roundId)
                 .limit(1);
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
             let progressExists = !progressSnapshot.empty;
 
             if (!progressExists) {
-                progressRef = adminDb.collection("MockRoundProgress").doc();
+                progressRef = adminDb.collection("mockRoundProgress").doc();
                 progressId = progressRef.id;
             } else {
                 const progress = progressSnapshot.docs[0].data();
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
                 progressId = progressSnapshot.docs[0].id;
             }
 
-            const responseQuery = adminDb.collection("MockResponse")
+            const responseQuery = adminDb.collection("mockResponse")
                 .where("roundProgressId", "==", progressId)
                 .where("questionId", "==", questionId)
                 .limit(1);
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
             };
 
             if (responseSnapshot.empty) {
-                const resRef = adminDb.collection("MockResponse").doc();
+                const resRef = adminDb.collection("mockResponse").doc();
                 transaction.set(resRef, { ...responseData, id: resRef.id });
             } else {
                 transaction.update(responseSnapshot.docs[0].ref, responseData);

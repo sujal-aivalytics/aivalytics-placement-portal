@@ -21,7 +21,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Get/Create Round Progress
-        const progressQuery = adminDb.collection("MockRoundProgress")
+        const progressQuery = adminDb.collection("mockRoundProgress")
             .where("enrollmentId", "==", enrollmentId)
             .where("roundId", "==", roundId)
             .limit(1);
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         let progressData: any;
 
         if (!progressDoc) {
-            const progressRef = adminDb.collection("MockRoundProgress").doc();
+            const progressRef = adminDb.collection("mockRoundProgress").doc();
             progressData = {
                 id: progressRef.id,
                 enrollmentId,
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
 
         // Fetch Round and Interactions
         const [roundDoc, interactionsSnapshot] = await Promise.all([
-            adminDb.collection("MockRound").doc(roundId).get(),
-            adminDb.collection("MockInterviewInteraction")
+            adminDb.collection("mockRounds").doc(roundId).get(),
+            adminDb.collection("mockInterviewInteraction")
                 .where("roundProgressId", "==", progressDoc.id)
                 .orderBy("orderIndex", "asc")
                 .get()
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
             const result = await model.generateContent(prompt);
             const question = result.response.text();
 
-            const interactionRef = adminDb.collection("MockInterviewInteraction").doc();
+            const interactionRef = adminDb.collection("mockInterviewInteraction").doc();
             await interactionRef.set({
                 id: interactionRef.id,
                 roundProgressId: progressDoc.id,
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
             }
 
             // Update Interaction
-            await adminDb.collection("MockInterviewInteraction").doc(currentInteraction.id).update({
+            await adminDb.collection("mockInterviewInteraction").doc(currentInteraction.id).update({
                 answerText,
                 aiFeedback: evaluation.feedback,
                 score: evaluation.score,
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
             if (previousInteractions.length >= maxQuestions) {
                 // Final Evaluation Transaction
                 const finalResult = await adminDb.runTransaction(async (transaction) => {
-                    const allSnapshot = await adminDb.collection("MockInterviewInteraction")
+                    const allSnapshot = await adminDb.collection("mockInterviewInteraction")
                         .where("roundProgressId", "==", progressDoc.id)
                         .get();
                     const allInteractions = allSnapshot.docs.map(doc => doc.data());
@@ -171,7 +171,7 @@ export async function POST(req: Request) {
                         finalAiFeedback = JSON.parse(evalText);
                     } catch (e) { }
 
-                    transaction.update(adminDb.collection("MockRoundProgress").doc(progressDoc.id), {
+                    transaction.update(adminDb.collection("mockRoundProgress").doc(progressDoc.id), {
                         status: 'COMPLETED',
                         completedAt: admin.firestore.Timestamp.now(),
                         score: avgScore * 10,
@@ -197,7 +197,7 @@ export async function POST(req: Request) {
             const result = await model.generateContent(nextQPrompt);
             const nextQ = result.response.text();
 
-            const nextInteractionRef = adminDb.collection("MockInterviewInteraction").doc();
+            const nextInteractionRef = adminDb.collection("mockInterviewInteraction").doc();
             await nextInteractionRef.set({
                 id: nextInteractionRef.id,
                 roundProgressId: progressDoc.id,

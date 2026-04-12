@@ -36,6 +36,7 @@ export async function GET() {
             graduationCGPA: userData.graduationCGPA,
             tenthPercentage: userData.tenthPercentage,
             twelfthPercentage: userData.twelfthPercentage,
+            notifications: userData.notifications || { email: true, push: true, newsletter: true },
         };
 
         return NextResponse.json(profile);
@@ -121,6 +122,7 @@ export async function PUT(req: Request) {
             graduationCGPA: validatedCGPA,
             tenthPercentage: validatedTenth,
             twelfthPercentage: validatedTwelfth,
+            notifications: data.notifications || { email: true, push: true, newsletter: true },
             updatedAt: admin.firestore.Timestamp.now()
         };
 

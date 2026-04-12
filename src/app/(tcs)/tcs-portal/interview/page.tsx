@@ -25,6 +25,8 @@ export default function InterviewPage() {
     const searchParams = useSearchParams();
     const interviewTypeParam = searchParams.get('type') || 'technical';
     const interviewType = interviewTypeParam === 'hr' ? 'HR' : 'Technical';
+    const driveId = searchParams.get('driveId') || 'demo-drive';
+    const roundId = searchParams.get('roundId') || (interviewTypeParam === 'hr' ? 'hr-round' : 'technical-round');
 
     const [state, setState] = useState<InterviewState>('lobby');
     const [micOn, setMicOn] = useState(true);
@@ -291,7 +293,13 @@ export default function InterviewPage() {
             await fetch('/api/submit-interview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: interviewTypeParam })
+                body: JSON.stringify({ 
+                    type: interviewTypeParam,
+                    driveId,
+                    roundId,
+                    status: 'completed',
+                    score: 85 // Mocked score for now
+                })
             });
 
             // Auto Redirect after short delay or let user click button? 

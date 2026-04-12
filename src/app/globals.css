@@ -7,8 +7,8 @@
 @layer base {
   :root {
     /* AiValytics-inspired Theme - Light Mode */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --background: 171 28% 94%; /* #EAF6F4 */
+    --foreground: 240 28% 15%; /* #1A1A2E */
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* AiValytics Teal: #1eb2a6 */
-    --primary: 175 71% 41%;
+    /* AiValytics Teal: #00B4A0 */
+    --primary: 173 100% 35%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 175 40% 96%;

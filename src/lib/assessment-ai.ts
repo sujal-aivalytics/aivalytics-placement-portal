@@ -31,7 +31,7 @@ export async function generateMCQEvaluation(
 
     try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
         const prompt = `
       Evaluate the following MCQ assessment performance for the round: "${roundTitle}".
@@ -95,7 +95,7 @@ export async function generateCodingEvaluation(
 
     try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
         const prompt = `
       Review the following coding assessment performance for the problem: "${problemTitle}".

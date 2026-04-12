@@ -12,54 +12,63 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const body = await req.json();
-        const { testId, subtopicName, questions } = body;
+        const formData = await req.formData();
+        const file = formData.get('file') as File;
+        const testId = formData.get('testId') as string;
+        const subtopicId = formData.get('subtopicId') as string;
 
-        if (!testId || !subtopicName || !Array.isArray(questions)) {
-            return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+        if (!file || !testId) {
+            return NextResponse.json({ error: 'Missing file or testId' }, { status: 400 });
         }
 
-        // 1. Find or Create Subtopic
-        const subtopicsSnapshot = await adminDb.collection("Subtopic")
-            .where("testId", "==", testId)
-            .where("name", "==", subtopicName)
-            .limit(1)
-            .get();
+        // Parse CSV using xlsx
+        const buffer = await file.arrayBuffer();
+        const workbook = (await import('xlsx')).read(buffer);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const questions = (await import('xlsx')).utils.sheet_to_json(worksheet) as any[];
 
-        let subtopicId;
+        if (!Array.isArray(questions) || questions.length === 0) {
+            return NextResponse.json({ error: 'Empty or invalid CSV file' }, { status: 400 });
+        }
+
         const now = admin.firestore.Timestamp.now();
 
-        if (subtopicsSnapshot.empty) {
-            const subtopicRef = adminDb.collection("Subtopic").doc();
-            subtopicId = subtopicRef.id;
-            await subtopicRef.set({
-                id: subtopicId,
-                testId,
-                name: subtopicName,
-                order: 0, // Default order
-                createdAt: now,
-                updatedAt: now
-            });
-        } else {
-            subtopicId = subtopicsSnapshot.docs[0].id;
+        // 1. Validate subtopic
+        const subtopicDoc = await adminDb.collection("subtopics").doc(subtopicId).get();
+        if (!subtopicDoc.exists) {
+            return NextResponse.json({ error: 'Subtopic not found' }, { status: 404 });
         }
+        const subtopicName = subtopicDoc.data()?.name || 'Subtopic';
 
         // 2. Upload Questions in Batches
         let successCount = 0;
         let currentBatch = adminDb.batch();
         let operationCount = 0;
 
+        const isCorrect = (val: any, index: number) => {
+            if (!val) return false;
+            const sVal = String(val).toUpperCase();
+            if (sVal === String(index)) return true;
+            if (sVal === 'A' && index === 1) return true;
+            if (sVal === 'B' && index === 2) return true;
+            if (sVal === 'C' && index === 3) return true;
+            if (sVal === 'D' && index === 4) return true;
+            return false;
+        };
+
         for (const q of questions) {
-            const questionRef = adminDb.collection("Question").doc();
+            const questionRef = adminDb.collection("questions").doc();
 
             const questionData = {
                 id: questionRef.id,
                 testId,
                 subtopicId,
-                text: q.text,
+                text: q.question || q.text || "Untitled Question",
                 type: q.type || 'multiple-choice',
                 marks: parseInt(q.marks || '1'),
-                metadata: q.metadata || null,
+                explanation: q.explanation || null,
+                difficulty: q.difficulty || 'Medium',
+                category: q.category || null,
                 createdAt: now,
                 updatedAt: now
             };
@@ -67,23 +76,31 @@ export async function POST(req: Request) {
             currentBatch.set(questionRef, questionData);
             operationCount++;
 
-            if (q.options && Array.isArray(q.options)) {
-                for (const o of q.options) {
-                    const optRef = adminDb.collection("Option").doc();
-                    currentBatch.set(optRef, {
-                        id: optRef.id,
-                        questionId: questionRef.id,
-                        text: o.text,
-                        isCorrect: o.isCorrect,
-                        createdAt: now
-                    });
-                    operationCount++;
+            // Process Options from CSV columns
+            const optionsData = [
+                { text: q.option_1, index: 1 },
+                { text: q.option_2, index: 2 },
+                { text: q.option_3, index: 3 },
+                { text: q.option_4, index: 4 }
+            ];
 
-                    if (operationCount >= 450) {
-                        await currentBatch.commit();
-                        currentBatch = adminDb.batch();
-                        operationCount = 0;
-                    }
+            for (const opt of optionsData) {
+                if (!opt.text) continue;
+                
+                const optRef = adminDb.collection("options").doc();
+                currentBatch.set(optRef, {
+                    id: optRef.id,
+                    questionId: questionRef.id,
+                    text: String(opt.text),
+                    isCorrect: isCorrect(q.correct_option, opt.index),
+                    createdAt: now
+                });
+                operationCount++;
+
+                if (operationCount >= 450) {
+                    await currentBatch.commit();
+                    currentBatch = adminDb.batch();
+                    operationCount = 0;
                 }
             }
 

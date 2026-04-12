@@ -68,7 +68,7 @@ export default async function AdminDashboard() {
                <h2 className="text-h4 text-gray-900 tracking-tight uppercase font-semibold">Administrative Tools</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Link href="/admin/subtopics" className="group">
+              <Link href="/admin/tests" className="group">
                 <div className="bg-white rounded-none p-10 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl border border-gray-100 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700" />
                   <div className="flex items-start justify-between mb-8 relative z-10">

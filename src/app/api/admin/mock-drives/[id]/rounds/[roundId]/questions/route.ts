@@ -18,7 +18,7 @@ export async function POST(
 
         const { id: driveId, roundId } = await params;
         const body = await req.json();
-        const { text, type, metadata } = body;
+        const { text, type, metadata, marks, subtopicId, options, correctOptionIndex, codingMetadata } = body;
 
         if (!text || !type) {
             return NextResponse.json({ error: 'Text and type are required' }, { status: 400 });
@@ -33,7 +33,12 @@ export async function POST(
             driveId,
             text,
             type,
-            metadata: typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || null),
+            marks: marks || 1,
+            subtopicId: subtopicId || null,
+            options: options || null,
+            correctOptionIndex: correctOptionIndex !== undefined ? correctOptionIndex : null,
+            codingMetadata: codingMetadata || null,
+            metadata: typeof metadata === 'object' ? metadata : (metadata ? JSON.parse(metadata) : null),
             createdAt: now,
             updatedAt: now
         };
@@ -78,8 +83,13 @@ export async function PUT(
         };
         if (text !== undefined) updateData.text = text;
         if (type !== undefined) updateData.type = type;
+        if (body.marks !== undefined) updateData.marks = body.marks;
+        if (body.subtopicId !== undefined) updateData.subtopicId = body.subtopicId;
+        if (body.options !== undefined) updateData.options = body.options;
+        if (body.correctOptionIndex !== undefined) updateData.correctOptionIndex = body.correctOptionIndex;
+        if (body.codingMetadata !== undefined) updateData.codingMetadata = body.codingMetadata;
         if (metadata !== undefined) {
-            updateData.metadata = typeof metadata === 'object' ? JSON.stringify(metadata) : metadata;
+            updateData.metadata = typeof metadata === 'object' ? metadata : (metadata ? JSON.parse(metadata) : null);
         }
 
         await questionRef.update(updateData);

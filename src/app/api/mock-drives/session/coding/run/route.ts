@@ -12,7 +12,7 @@ export async function POST(req: Request) {
         const { roundId, questionId, code, language, languageId } = await req.json();
 
         // 1. Fetch Question
-        const questionDoc = await adminDb.collection("MockQuestion").doc(questionId).get();
+        const questionDoc = await adminDb.collection("mockQuestions").doc(questionId).get();
         if (!questionDoc.exists) {
             return NextResponse.json({ error: "Question not found" }, { status: 404 });
         }

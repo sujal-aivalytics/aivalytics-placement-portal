@@ -16,7 +16,7 @@ export async function POST(req: Request) {
         }
 
         // Check if user already exists in Firestore
-        const existingUserSnapshot = await adminDb.collection("User")
+        const existingUserSnapshot = await adminDb.collection("users")
             .where("email", "==", email)
             .limit(1)
             .get();
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create user in Firestore
-        const userRef = adminDb.collection("User").doc();
+        const userRef = adminDb.collection("users").doc();
         const userData = {
             id: userRef.id,
             name,
