@@ -11,13 +11,13 @@ export async function getDashboardStats() {
             recentUsersSnapshot,
             statusDistSnapshot
         ] = await Promise.all([
-            adminDb.collection("User").where("role", "==", "user").count().get(),
-            adminDb.collection("Test").count().get(),
-            adminDb.collection("PlacementApplication").where("status", "not-in", ["completed", "rejected", "withdrawn"]).count().get(),
-            adminDb.collection("PlacementApplication").where("status", "==", "completed").count().get(),
-            adminDb.collection("PlacementApplication").orderBy("createdAt", "desc").limit(5).get(),
-            adminDb.collection("User").orderBy("createdAt", "desc").limit(3).get(),
-            adminDb.collection("PlacementApplication").select("status").get()
+            adminDb.collection("users").where("role", "==", "user").count().get(),
+            adminDb.collection("tests").count().get(),
+            adminDb.collection("placementApplications").where("status", "not-in", ["completed", "rejected", "withdrawn"]).count().get(),
+            adminDb.collection("placementApplications").where("status", "==", "completed").count().get(),
+            adminDb.collection("placementApplications").orderBy("createdAt", "desc").limit(5).get(),
+            adminDb.collection("users").orderBy("createdAt", "desc").limit(3).get(),
+            adminDb.collection("placementApplications").select("status").get()
         ]);
 
         const totalStudents = totalStudentsSnapshot.data().count;
@@ -38,7 +38,7 @@ export async function getDashboardStats() {
 
         const recentApplications = await Promise.all(recentAppsSnapshot.docs.map(async (doc) => {
             const data = doc.data();
-            const userDoc = await adminDb.collection("User").doc(data.userId).get();
+            const userDoc = await adminDb.collection("users").doc(data.userId).get();
             const userData = userDoc.data();
             return {
                 ...data,

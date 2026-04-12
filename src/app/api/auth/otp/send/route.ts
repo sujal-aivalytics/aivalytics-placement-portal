@@ -23,7 +23,7 @@ export async function POST(req: Request) {
         });
 
         // In a real app, send email here
-        console.log(`OTP for ${email}: ${otp}`);
+        // console.log(`OTP for ${email}: ${otp}`); // Safety: Never log secrets in production
 
         return NextResponse.json({ message: 'OTP sent successfully' });
     } catch (error: any) {

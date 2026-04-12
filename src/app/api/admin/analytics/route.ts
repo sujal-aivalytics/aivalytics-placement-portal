@@ -12,7 +12,7 @@ export async function GET(req: Request) {
         }
 
         // 1. Top Performers (Top 10 by average score across results)
-        const resultsSnapshot = await adminDb.collection("Result").get();
+        const resultsSnapshot = await adminDb.collection("results").get();
         const userScores: Record<string, { total: number, count: number }> = {};
 
         resultsSnapshot.docs.forEach(doc => {
@@ -26,55 +26,70 @@ export async function GET(req: Request) {
 
         const topPerformersData = await Promise.all(
             Object.entries(userScores)
-                .map(([userId, stats]) => ({ userId, avg: stats.total / stats.count }))
+                .map(([userId, stats]) => ({ userId, avg: stats.count > 0 ? stats.total / stats.count : 0 }))
                 .sort((a, b) => b.avg - a.avg)
-                .slice(0, 10)
+                .slice(0, 5) // Top 5 as per UI design
                 .map(async (item) => {
-                    const userDoc = await adminDb.collection("User").doc(item.userId).get();
+                    const userDoc = await adminDb.collection("users").doc(item.userId).get();
                     const userData = userDoc.data();
                     return {
                         id: item.userId,
                         name: userData?.name || 'Unknown',
-                        averageScore: item.avg,
-                        testCount: userScores[item.userId].count
+                        avgScore: Math.round(item.avg),
+                        tests: userScores[item.userId].count
                     };
                 })
         );
 
-        // 2. Test Success Rate (Topic-wise)
-        const testsSnapshot = await adminDb.collection("Test").get();
-        const topicAnalytics: Record<string, { totalScore: number, submissions: number }> = {};
-
-        resultsSnapshot.docs.forEach(doc => {
-            const rData = doc.data();
-            // We need to know the test's topic/category. 
-            // In a real scenario, we might have it in the result or fetch the test.
-            // For now, let's assume we fetch all tests once and use a map.
-        });
-
+        // 2. Performance Analysis (Topic & Company)
+        const testsSnapshot = await adminDb.collection("tests").get();
         const testsMap = new Map();
         testsSnapshot.docs.forEach(doc => testsMap.set(doc.id, doc.data()));
+
+        const topicAnalytics: Record<string, { totalScore: number, submissions: number }> = {};
+        const companyAnalytics: Record<string, { totalScore: number, submissions: number }> = {};
 
         resultsSnapshot.docs.forEach(doc => {
             const rData = doc.data();
             const test = testsMap.get(rData.testId);
-            const topic = test?.category || 'General';
+            
+            // Topic Analysis
+            const topic = test?.topic || test?.category || 'General';
             if (!topicAnalytics[topic]) {
                 topicAnalytics[topic] = { totalScore: 0, submissions: 0 };
             }
             topicAnalytics[topic].totalScore += rData.percentage || 0;
             topicAnalytics[topic].submissions += 1;
+
+            // Company Analysis
+            if (test?.type === 'company' && test?.company) {
+                const company = test.company;
+                if (!companyAnalytics[company]) {
+                    companyAnalytics[company] = { totalScore: 0, submissions: 0 };
+                }
+                companyAnalytics[company].totalScore += rData.percentage || 0;
+                companyAnalytics[company].submissions += 1;
+            }
         });
 
-        const performanceByTopic = Object.entries(topicAnalytics).map(([topic, stats]) => ({
+        const topicPerformance = Object.entries(topicAnalytics).map(([topic, stats]) => ({
             topic,
-            averageScore: stats.totalScore / stats.submissions,
-            submissions: stats.submissions
+            avgScore: stats.submissions > 0 ? Math.round(stats.totalScore / stats.submissions) : 0,
+            attempts: stats.submissions,
+            difficulty: 'Medium' // Default or aggregate from test.difficulty
+        }));
+
+        const companyPerformance = Object.entries(companyAnalytics).map(([company, stats]) => ({
+            company,
+            avgScore: stats.submissions > 0 ? Math.round(stats.totalScore / stats.submissions) : 0,
+            attempts: stats.submissions,
+            difficulty: 'Medium'
         }));
 
         return NextResponse.json({
             topPerformers: topPerformersData,
-            performanceByTopic
+            topicPerformance,
+            companyPerformance
         });
     } catch (error: any) {
         console.error('Analytics error:', error);

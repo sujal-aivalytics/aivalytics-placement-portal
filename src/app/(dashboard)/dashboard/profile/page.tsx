@@ -28,6 +28,11 @@ interface UserProfile {
   graduationCGPA: number | null;
   tenthPercentage: number | null;
   twelfthPercentage: number | null;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    newsletter: boolean;
+  };
 }
 
 export default function ProfilePage() {
@@ -47,6 +52,11 @@ export default function ProfilePage() {
     graduationCGPA: null,
     tenthPercentage: null,
     twelfthPercentage: null,
+    notifications: {
+      email: true,
+      push: true,
+      newsletter: true,
+    },
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +88,7 @@ export default function ProfilePage() {
           graduationCGPA: data.graduationCGPA ?? null,
           tenthPercentage: data.tenthPercentage ?? null,
           twelfthPercentage: data.twelfthPercentage ?? null,
+          notifications: data.notifications || { email: true, push: true, newsletter: true },
         });
       }
     } catch (error) {
@@ -425,7 +436,20 @@ export default function ProfilePage() {
                       <p className="text-[11px] text-gray-500 mt-0.5">{item.desc}</p>
                     </div>
                   </div>
-                  <Switch defaultChecked className="data-[state=checked]:bg-primary" />
+                  <Switch 
+                    checked={user.notifications[item.title.toLowerCase().split(' ')[0] as keyof typeof user.notifications]} 
+                    onCheckedChange={(checked) => {
+                      const key = item.title.toLowerCase().split(' ')[0] as keyof typeof user.notifications;
+                      setUser(prev => ({
+                        ...prev,
+                        notifications: {
+                          ...prev.notifications,
+                          [key]: checked
+                        }
+                      }));
+                    }}
+                    className="data-[state=checked]:bg-primary" 
+                  />
                 </div>
               ))}
             </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateMCQs, MCQRequest } from "@/lib/mcq-generator";
 import mammoth from "mammoth";
 import { extractText } from "unpdf";
+import { saveLocalData, isLocalhostMode } from "@/lib/local-storage";
 
 export async function POST(req: NextRequest) {
     console.log(">>> [START] POST /api/generate-mcq");
@@ -115,7 +116,26 @@ export async function POST(req: NextRequest) {
         });
         console.log(">>> MCQs generated successfully, count:", data.length);
 
-        return NextResponse.json({ data });
+        // --- LOCALHOST STORAGE MODE ---
+        // Save to local JSON file in development mode
+        if (isLocalhostMode()) {
+            console.log(">>> Saving to local storage...");
+            const localData = {
+                id: `mcq-${Date.now()}`,
+                source: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                keywords,
+                difficulty,
+                bloomsLevel,
+                count,
+                generatedAt: new Date().toISOString(),
+                questions: data
+            };
+            await saveLocalData('generated-mcqs', localData);
+            console.log(">>> Saved to .local-data/generated-mcqs.json");
+        }
+        // ------------------------------
+
+        return NextResponse.json({ data, savedLocally: isLocalhostMode() });
     } catch (error: any) {
         console.error("!!! API Error generating MCQs:", error);
         return NextResponse.json(

@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         }
 
         const batch = adminDb.batch();
-        const questionRef = adminDb.collection("Question").doc();
+        const questionRef = adminDb.collection("questions").doc();
 
         const questionData = {
             id: questionRef.id,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
         if (options && Array.isArray(options)) {
             options.forEach((opt: any) => {
-                const optRef = adminDb.collection("Option").doc();
+                const optRef = adminDb.collection("options").doc();
                 batch.set(optRef, {
                     id: optRef.id,
                     questionId: questionRef.id,
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         await batch.commit();
 
         // Fetch options to return
-        const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", questionRef.id).get();
+        const optionsSnapshot = await adminDb.collection("options").where("questionId", "==", questionRef.id).get();
         const freshOptions = optionsSnapshot.docs.map(doc => doc.data());
 
         return NextResponse.json({
@@ -82,11 +82,11 @@ export async function DELETE(req: Request) {
         const batch = adminDb.batch();
 
         // Delete options first
-        const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+        const optionsSnapshot = await adminDb.collection("options").where("questionId", "==", id).get();
         optionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
         // Delete question
-        batch.delete(adminDb.collection("Question").doc(id));
+        batch.delete(adminDb.collection("questions").doc(id));
 
         await batch.commit();
 
@@ -113,7 +113,7 @@ export async function PUT(req: Request) {
         }
 
         const batch = adminDb.batch();
-        const questionRef = adminDb.collection("Question").doc(id);
+        const questionRef = adminDb.collection("questions").doc(id);
 
         batch.update(questionRef, {
             text,
@@ -126,12 +126,12 @@ export async function PUT(req: Request) {
 
         if (options && Array.isArray(options)) {
             // Delete existing options
-            const existingOptionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+            const existingOptionsSnapshot = await adminDb.collection("options").where("questionId", "==", id).get();
             existingOptionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
             // Create new options
             options.forEach((opt: any) => {
-                const optRef = adminDb.collection("Option").doc();
+                const optRef = adminDb.collection("options").doc();
                 batch.set(optRef, {
                     id: optRef.id,
                     questionId: id,
@@ -145,7 +145,7 @@ export async function PUT(req: Request) {
 
         // Fetch fresh data
         const freshQuestionDoc = await questionRef.get();
-        const freshOptionsSnapshot = await adminDb.collection("Option").where("questionId", "==", id).get();
+        const freshOptionsSnapshot = await adminDb.collection("options").where("questionId", "==", id).get();
 
         return NextResponse.json({
             message: 'Question updated',

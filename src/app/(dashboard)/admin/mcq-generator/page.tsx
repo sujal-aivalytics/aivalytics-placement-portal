@@ -319,6 +319,12 @@ export default function MCQGeneratorPage() {
                                     <Copy className="w-4 h-4" />
                                     Copy JSON
                                 </Button>
+                                <Button variant="default" size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700" asChild>
+                                    <a href="/admin/local-data">
+                                        <ArrowRight className="w-4 h-4" />
+                                        Review & Sync
+                                    </a>
+                                </Button>
                             </div>
                         </div>
                     )}

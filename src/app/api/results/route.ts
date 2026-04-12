@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
         if (resultId) {
             // Get specific result
-            const resultDoc = await adminDb.collection("Result").doc(resultId).get();
+            const resultDoc = await adminDb.collection("results").doc(resultId).get();
             if (!resultDoc.exists) {
                 return NextResponse.json({ error: 'Result not found' }, { status: 404 });
             }
@@ -31,8 +31,8 @@ export async function GET(req: Request) {
 
             // Fetch Related Data
             const [testDoc, userDoc] = await Promise.all([
-                adminDb.collection("Test").doc(result.testId).get(),
-                adminDb.collection("User").doc(result.userId).get()
+                adminDb.collection("tests").doc(result.testId).get(),
+                adminDb.collection("users").doc(result.userId).get()
             ]);
 
             result.test = testDoc.exists ? { id: testDoc.id, ...testDoc.data() } : null;
@@ -45,14 +45,13 @@ export async function GET(req: Request) {
             return NextResponse.json({ result });
         } else {
             // Get all results for the user
-            const resultsSnapshot = await adminDb.collection("Result")
+            const resultsSnapshot = await adminDb.collection("results")
                 .where("userId", "==", session.user.id)
-                .orderBy("createdAt", "desc")
                 .get();
 
-            const results = await Promise.all(resultsSnapshot.docs.map(async (doc) => {
+            let results = await Promise.all(resultsSnapshot.docs.map(async (doc) => {
                 const data = doc.data() as any;
-                const testDoc = await adminDb.collection("Test").doc(data.testId).get();
+                const testDoc = await adminDb.collection("tests").doc(data.testId).get();
 
                 return {
                     ...data,
@@ -61,6 +60,13 @@ export async function GET(req: Request) {
                     percentage: data.total > 0 ? Math.round((data.score / data.total) * 100) : 0
                 };
             }));
+
+            // In-memory sort by 'createdAt' descending
+            results.sort((a: any, b: any) => {
+                const dateA = a.createdAt?.seconds || 0;
+                const dateB = b.createdAt?.seconds || 0;
+                return dateB - dateA;
+            });
 
             return NextResponse.json({ results });
         }
@@ -82,7 +88,7 @@ export async function POST(req: Request) {
         const { testTitle, testType, company, score, total, duration } = body;
 
         // Try to find existing test
-        const testSnapshot = await adminDb.collection("Test")
+        const testSnapshot = await adminDb.collection("tests")
             .where("title", "==", testTitle)
             .where("type", "==", testType)
             .where("company", "==", company)
@@ -92,7 +98,7 @@ export async function POST(req: Request) {
         let testId;
         if (testSnapshot.empty) {
             // Create placeholder test
-            const testRef = adminDb.collection("Test").doc();
+            const testRef = adminDb.collection("tests").doc();
             await testRef.set({
                 title: testTitle,
                 description: `${company} placement test`,
@@ -109,7 +115,7 @@ export async function POST(req: Request) {
         }
 
         // Create result
-        const resultRef = adminDb.collection("Result").doc();
+        const resultRef = adminDb.collection("results").doc();
         const resultData = {
             id: resultRef.id,
             userId: session.user.id,

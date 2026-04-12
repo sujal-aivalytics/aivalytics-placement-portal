@@ -8,8 +8,8 @@ import { Providers } from "@/components/providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Aivalytics Skill Builder",
-  description: "Master aptitude tests with AI-driven analytics",
+  title: "AiValytics | AI-Powered Placement Prep & Skill Building",
+  description: "Master MNC interviews for TCS, Wipro, and more with Gemini AI-driven mock tests and real-time proctoring.",
 };
 
 export default function RootLayout({

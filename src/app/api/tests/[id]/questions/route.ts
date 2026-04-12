@@ -18,21 +18,20 @@ export async function GET(
 
         const { id: testId } = await params;
 
-        const testDoc = await adminDb.collection("Test").doc(testId).get();
+        const testDoc = await adminDb.collection("tests").doc(testId).get();
         if (!testDoc.exists) {
             return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
 
         const testData = testDoc.data() as any;
 
-        const questionsSnapshot = await adminDb.collection("Question")
+        const questionsSnapshotCorrect = await adminDb.collection("questions")
             .where("testId", "==", testId)
-            .orderBy("order", "asc")
             .get();
 
-        const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
+        const questions = await Promise.all(questionsSnapshotCorrect.docs.map(async (qDoc) => {
             const qData = qDoc.data() as any;
-            const optionsSnapshot = await adminDb.collection("Option")
+            const optionsSnapshot = await adminDb.collection("options")
                 .where("questionId", "==", qDoc.id)
                 .get();
 
@@ -42,6 +41,9 @@ export async function GET(
                 options: optionsSnapshot.docs.map(oDoc => ({ id: oDoc.id, ...oDoc.data() }))
             };
         }));
+
+        // Sort questions in-memory
+        questions.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
 
         return NextResponse.json({
             test: {
@@ -78,14 +80,14 @@ export async function POST(
             return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
         }
 
-        const testDoc = await adminDb.collection("Test").doc(testId).get();
+        const testDoc = await adminDb.collection("tests").doc(testId).get();
         if (!testDoc.exists) {
             return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
 
         let finalSubtopicId = subtopicId;
         if (!finalSubtopicId) {
-            const subtopicsSnapshot = await adminDb.collection("Subtopic")
+            const subtopicsSnapshot = await adminDb.collection("subtopics")
                 .where("testId", "==", testId)
                 .orderBy("order", "asc")
                 .limit(1)
@@ -96,7 +98,7 @@ export async function POST(
         }
 
         const batch = adminDb.batch();
-        const questionRef = adminDb.collection("Question").doc();
+        const questionRef = adminDb.collection("questions").doc();
         const now = admin.firestore.Timestamp.now();
 
         const questionData = {
@@ -117,7 +119,7 @@ export async function POST(
         const createdOptions: any[] = [];
         if ((type === 'mcq' || type === 'multiple-choice') && Array.isArray(options)) {
             options.forEach((opt: { text: string; isCorrect: boolean }) => {
-                const optRef = adminDb.collection("Option").doc();
+                const optRef = adminDb.collection("options").doc();
                 const optData = {
                     id: optRef.id,
                     questionId: questionRef.id,
@@ -168,9 +170,9 @@ export async function DELETE(
         }
 
         const batch = adminDb.batch();
-        batch.delete(adminDb.collection("Question").doc(questionId));
+        batch.delete(adminDb.collection("questions").doc(questionId));
 
-        const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", questionId).get();
+        const optionsSnapshot = await adminDb.collection("options").where("questionId", "==", questionId).get();
         optionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
         await batch.commit();
@@ -202,7 +204,7 @@ export async function PUT(
             return NextResponse.json({ error: 'Question ID is required' }, { status: 400 });
         }
 
-        const questionDoc = await adminDb.collection("Question").doc(questionId).get();
+        const questionDoc = await adminDb.collection("questions").doc(questionId).get();
         if (!questionDoc.exists || questionDoc.data()?.testId !== testId) {
             return NextResponse.json({ error: 'Question not found' }, { status: 404 });
         }
@@ -219,14 +221,14 @@ export async function PUT(
             updatedAt: now
         };
 
-        batch.update(adminDb.collection("Question").doc(questionId), updateData);
+        batch.update(adminDb.collection("questions").doc(questionId), updateData);
 
         if (Array.isArray(options)) {
-            const optionsSnapshot = await adminDb.collection("Option").where("questionId", "==", questionId).get();
+            const optionsSnapshot = await adminDb.collection("options").where("questionId", "==", questionId).get();
             optionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
             options.forEach((opt: { text: string; isCorrect: boolean }) => {
-                const optRef = adminDb.collection("Option").doc();
+                const optRef = adminDb.collection("options").doc();
                 batch.set(optRef, {
                     id: optRef.id,
                     questionId: questionId,

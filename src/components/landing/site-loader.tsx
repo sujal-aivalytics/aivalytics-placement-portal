@@ -42,14 +42,14 @@ export function SiteLoader() {
                             />
                         </motion.div>
 
-                        <motion.h1
+                        <motion.span
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="text-2xl font-black tracking-tighter text-foreground"
+                            className="text-2xl font-black tracking-tighter text-foreground block"
                         >
                             AiValytics
-                        </motion.h1>
+                        </motion.span>
 
                         <motion.div
                             className="h-1 w-32 bg-muted overflow-hidden rounded-full mt-2"

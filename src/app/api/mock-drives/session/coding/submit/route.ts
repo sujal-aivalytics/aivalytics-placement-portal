@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         if (!judge0Id) return NextResponse.json({ error: 'Unsupported language' }, { status: 400 });
 
         // 1. Fetch Question & Test Cases
-        const questionDoc = await adminDb.collection("MockQuestion").doc(questionId).get();
+        const questionDoc = await adminDb.collection("mockQuestions").doc(questionId).get();
         if (!questionDoc.exists) {
             return NextResponse.json({ error: 'Question not found' }, { status: 404 });
         }
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         // 4. Atomic Updates in Transaction
         await adminDb.runTransaction(async (transaction: admin.firestore.Transaction) => {
             // A. READS FIRST
-            const progressQuery = adminDb.collection("MockRoundProgress")
+            const progressQuery = adminDb.collection("mockRoundProgress")
                 .where("enrollmentId", "==", enrollmentId)
                 .where("roundId", "==", roundId)
                 .limit(1);
@@ -85,21 +85,21 @@ export async function POST(req: Request) {
             let progressExists = !progressSnapshot.empty;
 
             if (!progressExists) {
-                progressRef = adminDb.collection("MockRoundProgress").doc();
+                progressRef = adminDb.collection("mockRoundProgress").doc();
                 progressId = progressRef.id;
             } else {
                 progressRef = progressSnapshot.docs[0].ref;
                 progressId = progressSnapshot.docs[0].id;
             }
 
-            const responseQuery = adminDb.collection("MockResponse")
+            const responseQuery = adminDb.collection("mockResponse")
                 .where("roundProgressId", "==", progressId)
                 .where("questionId", "==", questionId)
                 .limit(1);
 
             const responseSnapshot = await transaction.get(responseQuery);
 
-            const enrollmentRef = adminDb.collection("MockDriveEnrollment").doc(enrollmentId);
+            const enrollmentRef = adminDb.collection("mockDriveEnrollment").doc(enrollmentId);
             const enrollmentDoc = await transaction.get(enrollmentRef);
 
             // B. ADDITIONAL DATA (Rounds check)
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
 
             if (enrollmentDoc.exists) {
                 const enrollment = enrollmentDoc.data() as any;
-                const roundsSnapshot = await adminDb.collection("MockRound").where("driveId", "==", enrollment.driveId).get();
+                const roundsSnapshot = await adminDb.collection("mockRounds").where("driveId", "==", enrollment.driveId).get();
                 const totalRounds = roundsSnapshot.size;
                 currentRound = enrollment.currentRoundNumber || 1;
                 isLastRound = currentRound >= totalRounds;
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
             };
 
             if (responseSnapshot.empty) {
-                const resRef = adminDb.collection("MockResponse").doc();
+                const resRef = adminDb.collection("mockResponse").doc();
                 transaction.set(resRef, { ...responseData, id: resRef.id });
             } else {
                 transaction.update(responseSnapshot.docs[0].ref, responseData);

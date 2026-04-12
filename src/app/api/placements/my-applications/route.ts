@@ -13,27 +13,41 @@ export async function GET() {
 
         const applicationsSnapshot = await adminDb.collection("PlacementApplication")
             .where("userId", "==", session.user.id)
-            .orderBy("createdAt", "desc")
             .get();
 
-        const applications = await Promise.all(applicationsSnapshot.docs.map(async (doc) => {
-            const appId = doc.id;
-            const appData = doc.data();
+        const applications = await Promise.all(
+            applicationsSnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() as any }))
+                .sort((a, b) => {
+                    const dateA = a.createdAt?.seconds || 0;
+                    const dateB = b.createdAt?.seconds || 0;
+                    return dateB - dateA;
+                })
+                .map(async (appData) => {
+                    const appId = appData.id;
 
-            const [eligibilitySnapshot, stagesSnapshot, voiceSnapshot] = await Promise.all([
-                adminDb.collection("EligibilityCheck").where("applicationId", "==", appId).limit(1).get(),
-                adminDb.collection("AssessmentStage").where("applicationId", "==", appId).orderBy("createdAt", "asc").get(),
-                adminDb.collection("VoiceAssessment").where("applicationId", "==", appId).limit(1).get()
-            ]);
+                    const [eligibilitySnapshot, stagesSnapshot, voiceSnapshot] = await Promise.all([
+                        adminDb.collection("EligibilityCheck").where("applicationId", "==", appId).limit(1).get(),
+                        adminDb.collection("AssessmentStage").where("applicationId", "==", appId).get(),
+                        adminDb.collection("VoiceAssessment").where("applicationId", "==", appId).limit(1).get()
+                    ]);
 
-            return {
-                id: appId,
-                ...appData,
-                eligibilityCheck: eligibilitySnapshot.empty ? null : eligibilitySnapshot.docs[0].data(),
-                assessmentStages: stagesSnapshot.docs.map(sDoc => sDoc.data()),
-                voiceAssessment: voiceSnapshot.empty ? null : voiceSnapshot.docs[0].data(),
-            };
-        }));
+                    const assessmentStages = stagesSnapshot.docs
+                        .map(sDoc => sDoc.data())
+                        .sort((a: any, b: any) => {
+                            const dateA = a.createdAt?.seconds || 0;
+                            const dateB = b.createdAt?.seconds || 0;
+                            return dateA - dateB;
+                        });
+
+                    return {
+                        ...appData,
+                        eligibilityCheck: eligibilitySnapshot.empty ? null : eligibilitySnapshot.docs[0].data(),
+                        assessmentStages,
+                        voiceAssessment: voiceSnapshot.empty ? null : voiceSnapshot.docs[0].data(),
+                    };
+                })
+        );
 
         return NextResponse.json(applications);
     } catch (error: any) {

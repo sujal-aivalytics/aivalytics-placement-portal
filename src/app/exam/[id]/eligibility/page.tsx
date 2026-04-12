@@ -2,6 +2,7 @@ import { adminDb } from "@/lib/firebase-config";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import EligibilityClient from "./eligibility-client";
 
 export default async function ExamEligibilityPage({
     params,
@@ -27,15 +28,17 @@ export default async function ExamEligibilityPage({
     }
 
     // 2. Fetch User Profile
-    const userDoc = await adminDb.collection("User").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
+    if (!userDoc.exists) notFound();
     const userData = userDoc.data() as any;
 
     return (
-        <div className="container mx-auto py-12">
-            <h1 className="text-3xl font-bold mb-6">Eligibility Check</h1>
-            <div className="bg-card p-6 rounded-lg border">
-                {/* ... Render Eligibility logic and criteria using testData and userData ... */}
-            </div>
-        </div>
+        <EligibilityClient 
+            testId={id} 
+            criteria={testData.eligibilityCriteria} 
+            // Passing userData potentially if the client needs it, 
+            // or the client might fetch it itself. 
+            // Looking at the grep, it only takes testId and criteria.
+        />
     );
 }

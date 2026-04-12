@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-config';
 import * as admin from 'firebase-admin';
+import { loadLocalData, saveLocalData, isLocalhostMode } from '@/lib/local-storage';
 
 // GET - Fetch all subtopics for a test with user progress
 export async function GET(
@@ -17,32 +18,64 @@ export async function GET(
         }
 
         const { id: testId } = await params;
+        let subtopics: any[] = [];
+        let fromLocal = false;
 
-        // Fetch all subtopics for this test
-        const subtopicsSnapshot = await adminDb.collection("Subtopic")
-            .where("testId", "==", testId)
-            .orderBy("order", "asc")
-            .get();
+        // Try Firebase first
+        try {
+            const subtopicsSnapshot = await adminDb.collection("Subtopic")
+                .where("testId", "==", testId)
+                .get();
 
-        const subtopics = subtopicsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            subtopics = subtopicsSnapshot.docs
+                .map(doc => ({ ...doc.data(), id: doc.id } as any))
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+        } catch (firebaseError) {
+            console.warn('Firebase subtopics fetch failed:', firebaseError);
+        }
+
+        // Fallback to local storage in development mode
+        if (subtopics.length === 0 && isLocalhostMode()) {
+            const localSubtopics = await loadLocalData('subtopics');
+            if (localSubtopics && Array.isArray(localSubtopics)) {
+                subtopics = localSubtopics.filter((s: any) => s.testId === testId);
+                fromLocal = true;
+            }
+        }
 
         // Fetch user progress for these subtopics
         const userId = session.user.id;
         const transformedSubtopics = await Promise.all(subtopics.map(async (subtopic: any) => {
             // Get question count
-            const questionCountSnapshot = await adminDb.collection("Question")
-                .where("subtopicId", "==", subtopic.id)
-                .count()
-                .get();
+            let questionCount = 0;
+            try {
+                const questionCountSnapshot = await adminDb.collection("Question")
+                    .where("subtopicId", "==", subtopic.id)
+                    .count()
+                    .get();
+                questionCount = questionCountSnapshot.data().count;
+            } catch (e) {
+                // Fallback to local question count
+                if (isLocalhostMode()) {
+                    const localQuestions = await loadLocalData('questions');
+                    if (localQuestions && Array.isArray(localQuestions)) {
+                        questionCount = localQuestions.filter((q: any) => q.subtopicId === subtopic.id).length;
+                    }
+                }
+            }
 
             // Get user progress
-            const progressSnapshot = await adminDb.collection("UserSubtopicProgress")
-                .where("userId", "==", userId)
-                .where("subtopicId", "==", subtopic.id)
-                .limit(1)
-                .get();
-
-            const userProgress = progressSnapshot.empty ? null : progressSnapshot.docs[0].data();
+            let userProgress = null;
+            try {
+                const progressSnapshot = await adminDb.collection("UserSubtopicProgress")
+                    .where("userId", "==", userId)
+                    .where("subtopicId", "==", subtopic.id)
+                    .limit(1)
+                    .get();
+                userProgress = progressSnapshot.empty ? null : progressSnapshot.docs[0].data();
+            } catch (e) {
+                // Ignore progress fetch errors
+            }
 
             return {
                 id: subtopic.id,
@@ -51,7 +84,7 @@ export async function GET(
                 order: subtopic.order,
                 roundTitle: subtopic.roundTitle,
                 type: subtopic.type,
-                totalQuestions: questionCountSnapshot.data().count,
+                totalQuestions: questionCount || subtopic.totalQuestions || 0,
                 progress: userProgress
                     ? {
                         score: userProgress.score || 0,
@@ -64,7 +97,11 @@ export async function GET(
             };
         }));
 
-        return NextResponse.json({ subtopics: transformedSubtopics }, { status: 200 });
+        return NextResponse.json({ 
+            subtopics: transformedSubtopics, 
+            fromLocal,
+            status: 'success'
+        }, { status: 200 });
     } catch (error: any) {
         console.error('Error fetching subtopics:', error);
         return NextResponse.json({ error: 'Internal server error', subtopics: [] }, { status: 500 });
@@ -116,6 +153,14 @@ export async function POST(
         };
 
         await subtopicRef.set(subtopicData);
+
+        // Also save to local storage for development
+        if (isLocalhostMode()) {
+            const localSubtopic = { ...subtopicData, id: subtopicRef.id };
+            const existing = await loadLocalData('subtopics') || [];
+            const updated = Array.isArray(existing) ? [...existing, localSubtopic] : [localSubtopic];
+            await saveLocalData('subtopics', updated);
+        }
 
         return NextResponse.json(
             { message: 'Subtopic created successfully', subtopic: { ...subtopicData, id: subtopicRef.id } },

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-config';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -15,15 +17,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // Join Subtopics
         const subtopicsSnapshot = await adminDb.collection("Subtopic")
             .where("testId", "==", id)
-            .orderBy("order", "asc")
             .get();
 
-        const subtopics = subtopicsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const subtopics = subtopicsSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
 
         // Join Questions
         const questionsSnapshot = await adminDb.collection("Question")
             .where("testId", "==", id)
-            .orderBy("order", "asc")
             .get();
 
         const questions = await Promise.all(questionsSnapshot.docs.map(async (qDoc) => {
@@ -45,6 +47,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             };
         }));
 
+        // Sort questions in-memory
+        questions.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+
         return NextResponse.json({
             ...testData,
             id: testDoc.id,
@@ -59,6 +64,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session || !session.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
         const { id } = await params;
 
         // In Firestore, cascading delete isn't automatic

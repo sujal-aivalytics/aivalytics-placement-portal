@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/dashboard/sidebar";
-// import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 
@@ -39,7 +39,7 @@ export default function DashboardLayout({
             {/* Main Content Area */}
             <main className="flex-1 h-screen overflow-y-auto overflow-x-hidden transition-all duration-300">
                 <div className={`transition-all duration-300 min-h-screen flex flex-col ${!hideSidebar ? (collapsed ? 'lg:pl-28' : 'lg:pl-72') : ''}`}>
-                    {/* <DashboardHeader setMobileOpen={setMobileOpen} /> */}
+                    <DashboardHeader setMobileOpen={setMobileOpen} />
 
                     <div className="flex-1 w-full relative p-4 md:p-6 lg:p-8">
                         {children}

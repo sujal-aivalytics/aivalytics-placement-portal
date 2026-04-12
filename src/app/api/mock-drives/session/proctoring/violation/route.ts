@@ -15,7 +15,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
         }
 
-        const progressQuery = adminDb.collection("MockRoundProgress")
+        const progressQuery = adminDb.collection("mockRoundProgress")
             .where("enrollmentId", "==", enrollmentId)
             .where("roundId", "==", roundId)
             .limit(1);

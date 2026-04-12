@@ -75,7 +75,7 @@ export default function TestsPage() {
     return (
       <div className="space-y-6 p-6 md:p-10">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Tests</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Curriculum Management</h1>
         </div>
         <div className="flex justify-center items-center h-[calc(100vh-200px)]">
           <Spinner size={40} className="text-emerald-600" />
@@ -87,7 +87,7 @@ export default function TestsPage() {
   return (
     <div className="space-y-6 p-6 md:p-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Tests</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Curriculum Management</h1>
         <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20">
           <Link href="/admin/tests/new">
             <Plus className="mr-2 h-4 w-4" />

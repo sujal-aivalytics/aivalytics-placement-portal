@@ -1,14 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Code, FileText, Settings, CheckCircle2, X } from "lucide-react";
+import { Save, Code, FileText, Settings, CheckCircle2, X, Wand2, AlertCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/loader";
+
+interface ValidationStatus {
+  examples: boolean;
+  starterTemplate: boolean;
+  driverCode: boolean;
+  testCases: boolean;
+}
 
 export default function CreateProblemPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [autoFixLoading, setAutoFixLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [correctionLog, setCorrectionLog] = useState<string[]>([]);
+  const [showCorrectionLog, setShowCorrectionLog] = useState(false);
+  const [validation, setValidation] = useState<ValidationStatus>({
+    examples: true,
+    starterTemplate: true,
+    driverCode: true,
+    testCases: true,
+  });
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -23,11 +39,122 @@ export default function CreateProblemPage() {
     testCases: "",
   });
 
+  // Validate JSON fields
+  const validateJSON = useCallback((): ValidationStatus => {
+    const check = (val: string): boolean => {
+      if (!val || !val.trim()) return true;
+      try {
+        JSON.parse(val);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const status = {
+      examples: check(form.examples),
+      starterTemplate: check(form.starterTemplate),
+      driverCode: check(form.driverCode),
+      testCases: check(form.testCases),
+    };
+    setValidation(status);
+    return status;
+  }, [form]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    
+    // Validate JSON fields on change
+    if (['examples', 'starterTemplate', 'driverCode', 'testCases'].includes(name)) {
+      try {
+        if (value.trim()) JSON.parse(value);
+        setValidation(prev => ({ ...prev, [name]: true }));
+      } catch {
+        setValidation(prev => ({ ...prev, [name]: false }));
+      }
+    }
+  };
+
+  // AI Auto-fix function
+  const handleAutoFix = async () => {
+    setAutoFixLoading(true);
+    setCorrectionLog([]);
+    
+    try {
+      const res = await fetch('/api/admin/problems/correct-json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          constraints: form.constraints,
+          examples: form.examples,
+          starterTemplate: form.starterTemplate,
+          driverCode: form.driverCode,
+          testCases: form.testCases,
+          useAI: true
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        
+        // Update form with corrected values
+        setForm(prev => ({
+          ...prev,
+          examples: JSON.stringify(result.data.examples, null, 2),
+          starterTemplate: JSON.stringify(result.data.starterTemplate, null, 2),
+          driverCode: JSON.stringify(result.data.driverCode, null, 2),
+          testCases: JSON.stringify(result.data.testCases, null, 2),
+        }));
+
+        // Update validation status
+        setValidation({
+          examples: true,
+          starterTemplate: true,
+          driverCode: true,
+          testCases: true,
+        });
+
+        // Show corrections
+        setCorrectionLog(result.corrections || []);
+        setShowCorrectionLog(true);
+        
+        // Auto-hide correction log after 5 seconds
+        setTimeout(() => setShowCorrectionLog(false), 5000);
+      } else {
+        alert('AI correction failed. Please check your inputs manually.');
+      }
+    } catch (error) {
+      console.error('Auto-fix error:', error);
+      alert('Failed to auto-correct. Please try again.');
+    } finally {
+      setAutoFixLoading(false);
+    }
   };
 
   const submit = async () => {
+    // First validate all JSON fields
+    const isValid = validateJSON();
+    const allValid = Object.values(isValid).every(v => v);
+
+    if (!allValid) {
+      const invalidFields = Object.entries(isValid)
+        .filter(([, v]) => !v)
+        .map(([k]) => k)
+        .join(', ');
+      
+      const shouldAutoFix = confirm(
+        `JSON syntax error in: ${invalidFields}\n\nWould you like AI to auto-fix these issues?`
+      );
+      
+      if (shouldAutoFix) {
+        await handleAutoFix();
+      }
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -53,7 +180,7 @@ export default function CreateProblemPage() {
       setLoading(false);
 
     } catch (err) {
-      alert("Error: Please check your JSON syntax in the technical fields.");
+      alert("Error saving problem. Please try again.");
       setLoading(false);
     }
   };
@@ -89,6 +216,26 @@ export default function CreateProblemPage() {
         </div>
       )}
 
+      {/* CORRECTION LOG TOAST */}
+      {showCorrectionLog && correctionLog.length > 0 && (
+        <div className="fixed top-20 right-8 z-50 max-w-sm animate-in slide-in-from-right duration-300">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Wand2 className="w-4 h-4 text-emerald-600" />
+              <span className="font-semibold text-emerald-800 text-sm">AI Auto-Corrections Applied</span>
+            </div>
+            <ul className="text-xs text-emerald-700 space-y-1">
+              {correctionLog.map((correction, i) => (
+                <li key={i} className="flex items-start gap-1">
+                  <span className="text-emerald-500 mt-0.5">•</span>
+                  {correction}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* STICKY HEADER */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white/80 backdrop-blur-md px-8 py-4 shadow-sm">
         <div className="flex items-center gap-4">
@@ -101,6 +248,24 @@ export default function CreateProblemPage() {
           </div>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={handleAutoFix}
+            disabled={autoFixLoading || Object.values(validation).every(v => v)}
+            className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:scale-95 disabled:opacity-50 transition-all"
+            title="Auto-fix JSON syntax errors with AI"
+          >
+            {autoFixLoading ? (
+              <>
+                <Spinner size={14} className="text-amber-600" />
+                <span>Fixing...</span>
+              </>
+            ) : (
+              <>
+                <Wand2 size={16} />
+                <span>AI Fix JSON</span>
+              </>
+            )}
+          </button>
           <button
             onClick={submit}
             disabled={loading}
@@ -161,17 +326,60 @@ export default function CreateProblemPage() {
 
         {/* SECTION 3: TECHNICAL JSON DATA */}
         <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="mb-8 flex items-center gap-3 border-b border-slate-100 pb-5">
-            <div className="p-2 bg-emerald-50 rounded-lg">
-              <Code className="text-emerald-600" size={22} />
+          <div className="mb-8 flex items-center justify-between border-b border-slate-100 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 rounded-lg">
+                <Code className="text-emerald-600" size={22} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Technical Configuration (JSON)</h2>
+                <p className="text-xs text-slate-500">Enter valid JSON. AI can auto-fix common syntax errors.</p>
+              </div>
             </div>
-            <h2 className="text-xl font-bold text-slate-800">Technical Configuration (JSON)</h2>
+            {!Object.values(validation).every(v => v) && (
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-medium">
+                <AlertCircle size={14} />
+                <span>JSON validation errors detected</span>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-            <Textarea name="examples" label="Examples JSON" isCode placeholder="[{ 'input': '...', 'output': '...' }]" onChange={handleChange} />
-            <Textarea name="testCases" label="Test Cases JSON" isCode placeholder="[{ 'id': 1, 'input': '...', 'output': '...' }]" onChange={handleChange} />
-            <Textarea name="starterTemplate" label="Starter Template JSON" isCode placeholder="{ 'cpp': '...', 'python': '...' }" onChange={handleChange} />
-            <Textarea name="driverCode" label="Driver Code JSON" isCode placeholder="{ 'cpp': '...', 'python': '...' }" onChange={handleChange} />
+            <Textarea 
+              name="examples" 
+              label="Examples JSON" 
+              isCode 
+              isValid={validation.examples}
+              value={form.examples}
+              placeholder="[{ 'input': '...', 'output': '...' }]" 
+              onChange={handleChange} 
+            />
+            <Textarea 
+              name="testCases" 
+              label="Test Cases JSON" 
+              isCode 
+              isValid={validation.testCases}
+              value={form.testCases}
+              placeholder="[{ 'id': 1, 'input': '...', 'output': '...' }]" 
+              onChange={handleChange} 
+            />
+            <Textarea 
+              name="starterTemplate" 
+              label="Starter Template JSON" 
+              isCode 
+              isValid={validation.starterTemplate}
+              value={form.starterTemplate}
+              placeholder="{ 'cpp': '...', 'python': '...' }" 
+              onChange={handleChange} 
+            />
+            <Textarea 
+              name="driverCode" 
+              label="Driver Code JSON" 
+              isCode 
+              isValid={validation.driverCode}
+              value={form.driverCode}
+              placeholder="{ 'cpp': '...', 'python': '...' }" 
+              onChange={handleChange} 
+            />
           </div>
         </section>
       </div>
@@ -193,17 +401,25 @@ function Input({ label, ...props }: any) {
   );
 }
 
-function Textarea({ label, isCode, ...props }: any) {
+function Textarea({ label, isCode, isValid, ...props }: any) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-bold text-slate-700 ml-1">{label}</label>
+      <label className="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
+        {label}
+        {isCode && isValid !== undefined && (
+          <span className={`text-[10px] px-1.5 py-0.5 rounded ${isValid ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+            {isValid ? 'Valid JSON' : 'Invalid JSON'}
+          </span>
+        )}
+      </label>
       <textarea
         {...props}
         rows={isCode ? 10 : 5}
-        className={`rounded-xl border border-slate-200 p-4 text-sm transition-all outline-none focus:ring-4 ${isCode
-            ? "font-mono bg-slate-900 text-indigo-300 focus:border-indigo-400 focus:ring-indigo-500/20"
-            : "bg-slate-50/50 focus:border-indigo-500 focus:bg-white focus:ring-indigo-500/10"
-          }`}
+        className={`rounded-xl border p-4 text-sm transition-all outline-none focus:ring-4 ${
+          isCode
+            ? `font-mono ${isValid === false ? 'bg-red-950/30 border-red-400 text-red-200 focus:border-red-400 focus:ring-red-500/20' : 'bg-slate-900 text-indigo-300 focus:border-indigo-400 focus:ring-indigo-500/20'}`
+            : "bg-slate-50/50 border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-indigo-500/10"
+        }`}
       />
     </div>
   );

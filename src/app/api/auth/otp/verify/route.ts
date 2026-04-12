@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-config';
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
     try {
@@ -24,8 +25,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'OTP expired' }, { status: 400 });
         }
 
-        // Check if OTP matches
-        if (otpData.otp !== otp) {
+        // Check if OTP matches (constant-time comparison to prevent timing attacks)
+        const providedBuffer = Buffer.from(otp);
+        const storedBuffer = Buffer.from(otpData.otp);
+
+        if (providedBuffer.length !== storedBuffer.length || !crypto.timingSafeEqual(providedBuffer, storedBuffer)) {
             return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
         }
 

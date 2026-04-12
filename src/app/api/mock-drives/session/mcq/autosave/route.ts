@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
         const autosaveResult = await adminDb.runTransaction(async (transaction) => {
             // 1. Get/Upsert Round Progress
-            const progressQuery = adminDb.collection("MockRoundProgress")
+            const progressQuery = adminDb.collection("mockRoundProgress")
                 .where("enrollmentId", "==", enrollmentId)
                 .where("roundId", "==", roundId)
                 .limit(1);
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
             let progressId;
 
             if (progressSnapshot.empty) {
-                progressRef = adminDb.collection("MockRoundProgress").doc();
+                progressRef = adminDb.collection("mockRoundProgress").doc();
                 progressId = progressRef.id;
                 transaction.set(progressRef, {
                     id: progressId,
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
             // 2. Upsert Multiple Responses if provided
             if (answers && typeof answers === 'object') {
                 for (const [qId, ans] of Object.entries(answers)) {
-                    const responseQuery = adminDb.collection("MockResponse")
+                    const responseQuery = adminDb.collection("mockResponse")
                         .where("roundProgressId", "==", progressId)
                         .where("questionId", "==", qId)
                         .limit(1);
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
                     };
 
                     if (responseSnapshot.empty) {
-                        const resRef = adminDb.collection("MockResponse").doc();
+                        const resRef = adminDb.collection("mockResponse").doc();
                         transaction.set(resRef, { ...responseData, id: resRef.id });
                     } else {
                         transaction.update(responseSnapshot.docs[0].ref, responseData);

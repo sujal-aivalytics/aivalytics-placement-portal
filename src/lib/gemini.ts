@@ -10,8 +10,8 @@ export function getGeminiModel() {
     }
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Based on verified list, gemini-2.0-flash is available.
-        return genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        // Using gemini-2.5-flash (current stable model)
+        return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     } catch (error) {
         console.error("Error initializing Gemini client:", error);
         return null;

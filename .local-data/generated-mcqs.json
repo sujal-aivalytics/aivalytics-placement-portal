@@ -1,0 +1,664 @@
+{
+  "collection": "generated-mcqs",
+  "updatedAt": "2026-04-09T18:46:25.100Z",
+  "data": {
+    "id": "mcq-1775760384842",
+    "source": "Hard Aptitude Questions (MCQs)\n1. A train travels 120 km in 2 hours. What is its average speed?\nA) 5...",
+    "keywords": [],
+    "difficulty": "Medium",
+    "bloomsLevel": "Understand",
+    "count": 5,
+    "generatedAt": "2026-04-09T18:46:24.842Z",
+    "questions": [
+      {
+        "keyword": "Speed, Time, Distance",
+        "questions": [
+          {
+            "question": "A car travels 240 km in 4 hours. What is its average speed?",
+            "options": [
+              {
+                "label": "A",
+                "text": "50 km/h"
+              },
+              {
+                "label": "B",
+                "text": "60 km/h"
+              },
+              {
+                "label": "C",
+                "text": "70 km/h"
+              },
+              {
+                "label": "D",
+                "text": "80 km/h"
+              }
+            ],
+            "correct_answer": "60 km/h",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A train travels 120 km in 2 hours. What is its average speed?"
+          },
+          {
+            "question": "If a bus covers 300 km at an average speed of 75 km/h, how long does the journey take?",
+            "options": [
+              {
+                "label": "A",
+                "text": "3 hours"
+              },
+              {
+                "label": "B",
+                "text": "4 hours"
+              },
+              {
+                "label": "C",
+                "text": "5 hours"
+              },
+              {
+                "label": "D",
+                "text": "6 hours"
+              }
+            ],
+            "correct_answer": "4 hours",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A train travels 120 km in 2 hours. What is its average speed?"
+          },
+          {
+            "question": "A cyclist travels at a speed of 25 km/h for 3 hours. What total distance does the cyclist cover?",
+            "options": [
+              {
+                "label": "A",
+                "text": "65 km"
+              },
+              {
+                "label": "B",
+                "text": "70 km"
+              },
+              {
+                "label": "C",
+                "text": "75 km"
+              },
+              {
+                "label": "D",
+                "text": "80 km"
+              }
+            ],
+            "correct_answer": "75 km",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A train travels 120 km in 2 hours. What is its average speed?"
+          },
+          {
+            "question": "A boat covers 180 km in 6 hours. What is its average speed?",
+            "options": [
+              {
+                "label": "A",
+                "text": "25 km/h"
+              },
+              {
+                "label": "B",
+                "text": "30 km/h"
+              },
+              {
+                "label": "C",
+                "text": "35 km/h"
+              },
+              {
+                "label": "D",
+                "text": "40 km/h"
+              }
+            ],
+            "correct_answer": "30 km/h",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A train travels 120 km in 2 hours. What is its average speed?"
+          },
+          {
+            "question": "How long will it take a person to travel 90 km at a speed of 45 km/h?",
+            "options": [
+              {
+                "label": "A",
+                "text": "1 hour"
+              },
+              {
+                "label": "B",
+                "text": "1.5 hours"
+              },
+              {
+                "label": "C",
+                "text": "2 hours"
+              },
+              {
+                "label": "D",
+                "text": "2.5 hours"
+              }
+            ],
+            "correct_answer": "2 hours",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A train travels 120 km in 2 hours. What is its average speed?"
+          }
+        ]
+      },
+      {
+        "keyword": "Interest (Simple and Compound)",
+        "questions": [
+          {
+            "question": "What is the simple interest on N2000 for 3 years at an annual rate of 5%?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N200"
+              },
+              {
+                "label": "B",
+                "text": "N300"
+              },
+              {
+                "label": "C",
+                "text": "N400"
+              },
+              {
+                "label": "D",
+                "text": "N500"
+              }
+            ],
+            "correct_answer": "N300",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A sum of money becomes double in 5 years at simple interest. What is the rate?"
+          },
+          {
+            "question": "A sum of money becomes double in 10 years at simple interest. What is the annual rate of interest?",
+            "options": [
+              {
+                "label": "A",
+                "text": "5%"
+              },
+              {
+                "label": "B",
+                "text": "10%"
+              },
+              {
+                "label": "C",
+                "text": "15%"
+              },
+              {
+                "label": "D",
+                "text": "20%"
+              }
+            ],
+            "correct_answer": "10%",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A sum of money becomes double in 5 years at simple interest. What is the rate?"
+          },
+          {
+            "question": "What is the amount after 2 years if N4000 is invested at 5% compound interest, compounded annually?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N4400"
+              },
+              {
+                "label": "B",
+                "text": "N4410"
+              },
+              {
+                "label": "C",
+                "text": "N4420"
+              },
+              {
+                "label": "D",
+                "text": "N4500"
+              }
+            ],
+            "correct_answer": "N4410",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A man invests n5000 at 10% compound interest for 2 years. Amount?"
+          },
+          {
+            "question": "If N3000 earns N450 simple interest in 3 years, what is the annual rate of interest?",
+            "options": [
+              {
+                "label": "A",
+                "text": "4%"
+              },
+              {
+                "label": "B",
+                "text": "5%"
+              },
+              {
+                "label": "C",
+                "text": "6%"
+              },
+              {
+                "label": "D",
+                "text": "7%"
+              }
+            ],
+            "correct_answer": "5%",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A sum of money becomes double in 5 years at simple interest. What is the rate?"
+          },
+          {
+            "question": "An investment of N10000 yields 10% compound interest annually. What is the total interest earned after 2 years?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N2000"
+              },
+              {
+                "label": "B",
+                "text": "N2100"
+              },
+              {
+                "label": "N2200"
+              },
+              {
+                "label": "D",
+                "text": "N2300"
+              }
+            ],
+            "correct_answer": "N2100",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A man invests n5000 at 10% compound interest for 2 years. Amount?"
+          }
+        ]
+      },
+      {
+        "keyword": "Number Series",
+        "questions": [
+          {
+            "question": "Find the next number in the series: 3, 7, 11, 15, ?",
+            "options": [
+              {
+                "label": "A",
+                "text": "17"
+              },
+              {
+                "label": "B",
+                "text": "18"
+              },
+              {
+                "label": "C",
+                "text": "19"
+              },
+              {
+                "label": "D",
+                "text": "20"
+              }
+            ],
+            "correct_answer": "19",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Find the next number: 2, 6, 12, 20, ?"
+          },
+          {
+            "question": "Find the next number in the series: 1, 4, 9, 16, ?",
+            "options": [
+              {
+                "label": "A",
+                "text": "20"
+              },
+              {
+                "label": "B",
+                "text": "22"
+              },
+              {
+                "label": "C",
+                "text": "25"
+              },
+              {
+                "label": "D",
+                "text": "28"
+              }
+            ],
+            "correct_answer": "25",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Find the next number: 2, 6, 12, 20, ?"
+          },
+          {
+            "question": "Find the missing number in the series: 4, 16, 64, 256, ?",
+            "options": [
+              {
+                "label": "A",
+                "text": "512"
+              },
+              {
+                "label": "B",
+                "text": "1024"
+              },
+              {
+                "label": "C",
+                "text": "1280"
+              },
+              {
+                "label": "D",
+                "text": "2048"
+              }
+            ],
+            "correct_answer": "1024",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Find missing number: 3, 9, 27, 81, ?"
+          },
+          {
+            "question": "What is the next number in the sequence: 1, 8, 27, 64, ?",
+            "options": [
+              {
+                "label": "A",
+                "text": "81"
+              },
+              {
+                "label": "B",
+                "text": "100"
+              },
+              {
+                "label": "C",
+                "text": "125"
+              },
+              {
+                "label": "D",
+                "text": "144"
+              }
+            ],
+            "correct_answer": "125",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Find the next number: 2, 6, 12, 20, ?"
+          },
+          {
+            "question": "Determine the next number in the series: 5, 10, 15, 20, ?",
+            "options": [
+              {
+                "label": "A",
+                "text": "22"
+              },
+              {
+                "label": "B",
+                "text": "25"
+              },
+              {
+                "label": "C",
+                "text": "28"
+              },
+              {
+                "label": "D",
+                "text": "30"
+              }
+            ],
+            "correct_answer": "25",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Find the next number: 2, 6, 12, 20, ?"
+          }
+        ]
+      },
+      {
+        "keyword": "Profit and Loss / Percentages",
+        "questions": [
+          {
+            "question": "A shopkeeper buys an item for N800 and sells it for N1000. What is the profit percentage?",
+            "options": [
+              {
+                "label": "A",
+                "text": "15%"
+              },
+              {
+                "label": "B",
+                "text": "20%"
+              },
+              {
+                "label": "C",
+                "text": "25%"
+              },
+              {
+                "label": "D",
+                "text": "30%"
+              }
+            ],
+            "correct_answer": "25%",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A shopkeeper marks goods 20% above cost and gives 10% discount. Profit?"
+          },
+          {
+            "question": "If 30% of a number is 60, what is the number?",
+            "options": [
+              {
+                "label": "A",
+                "text": "150"
+              },
+              {
+                "label": "B",
+                "text": "180"
+              },
+              {
+                "label": "C",
+                "text": "200"
+              },
+              {
+                "label": "D",
+                "text": "240"
+              }
+            ],
+            "correct_answer": "200",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "If 20% of a number is 40, find the number."
+          },
+          {
+            "question": "An item is marked N500. A discount of 15% is given. What is the selling price?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N425"
+              },
+              {
+                "label": "B",
+                "text": "N435"
+              },
+              {
+                "label": "C",
+                "text": "N450"
+              },
+              {
+                "label": "D",
+                "text": "N475"
+              }
+            ],
+            "correct_answer": "N425",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A shopkeeper marks goods 20% above cost and gives 10% discount. Profit?"
+          },
+          {
+            "question": "A fruit vendor buys oranges for N100 per dozen and sells them for N12 each. What is the profit per dozen?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N24"
+              },
+              {
+                "label": "B",
+                "text": "N30"
+              },
+              {
+                "label": "C",
+                "text": "N36"
+              },
+              {
+                "label": "D",
+                "text": "N44"
+              }
+            ],
+            "correct_answer": "N44",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A shopkeeper marks goods 20% above cost and gives 10% discount. Profit?"
+          },
+          {
+            "question": "If an item's original price is N200 and it is sold at a 10% loss, what is the selling price?",
+            "options": [
+              {
+                "label": "A",
+                "text": "N170"
+              },
+              {
+                "label": "B",
+                "text": "N180"
+              },
+              {
+                "label": "C",
+                "text": "N190"
+              },
+              {
+                "label": "D",
+                "text": "N210"
+              }
+            ],
+            "correct_answer": "N180",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "A shopkeeper marks goods 20% above cost and gives 10% discount. Profit?"
+          }
+        ]
+      },
+      {
+        "keyword": "Work and Time / Ratio",
+        "questions": [
+          {
+            "question": "If 6 workers complete a task in 10 days, how many days will 5 workers take to complete the same task?",
+            "options": [
+              {
+                "label": "A",
+                "text": "8 days"
+              },
+              {
+                "label": "B",
+                "text": "10 days"
+              },
+              {
+                "label": "C",
+                "text": "12 days"
+              },
+              {
+                "label": "D",
+                "text": "15 days"
+              }
+            ],
+            "correct_answer": "12 days",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "If 5 workers complete a task in 12 days, how many days will 10 workers take?"
+          },
+          {
+            "question": "The ratio of red balls to blue balls in a bag is 2:3. If there are 10 red balls, how many blue balls are there?",
+            "options": [
+              {
+                "label": "A",
+                "text": "12"
+              },
+              {
+                "label": "B",
+                "text": "15"
+              },
+              {
+                "label": "C",
+                "text": "18"
+              },
+              {
+                "label": "D",
+                "text": "20"
+              }
+            ],
+            "correct_answer": "15",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Ratio of boys to girls is 3:2. Total students = 50. Girls?"
+          },
+          {
+            "question": "A project can be finished by 15 people in 4 days. How many people are required to finish it in 3 days?",
+            "options": [
+              {
+                "label": "A",
+                "text": "18"
+              },
+              {
+                "label": "B",
+                "text": "20"
+              },
+              {
+                "label": "C",
+                "text": "22"
+              },
+              {
+                "label": "D",
+                "text": "25"
+              }
+            ],
+            "correct_answer": "20",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "If 5 workers complete a task in 12 days, how many days will 10 workers take?"
+          },
+          {
+            "question": "In a school, the ratio of teachers to students is 1:15. If there are 300 students, how many teachers are there?",
+            "options": [
+              {
+                "label": "A",
+                "text": "15"
+              },
+              {
+                "label": "B",
+                "text": "20"
+              },
+              {
+                "label": "C",
+                "text": "25"
+              },
+              {
+                "label": "D",
+                "text": "30"
+              }
+            ],
+            "correct_answer": "20",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "Ratio of boys to girls is 3:2. Total students = 50. Girls?"
+          },
+          {
+            "question": "If 2 men can paint a house in 8 days, how many days will it take 4 men to paint the same house?",
+            "options": [
+              {
+                "label": "A",
+                "text": "2 days"
+              },
+              {
+                "label": "B",
+                "text": "3 days"
+              },
+              {
+                "label": "C",
+                "text": "4 days"
+              },
+              {
+                "label": "D",
+                "text": "5 days"
+              }
+            ],
+            "correct_answer": "4 days",
+            "difficulty": "Medium",
+            "blooms_level": "Understand",
+            "reference_excerpt": "If 5 workers complete a task in 12 days, how many days will 10 workers take?"
+          }
+        ]
+      }
+    ]
+  }
+}
