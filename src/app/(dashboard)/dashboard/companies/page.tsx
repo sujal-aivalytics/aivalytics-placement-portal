@@ -139,103 +139,134 @@ export default function CompanyTestsPage() {
       {/* TCS SECTION */}
       <div className="space-y-6">
         <div className="flex items-center gap-4 border-l-4 border-[#0067b1] pl-4">
-          <div className="w-12 h-12 relative overflow-hidden rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center">
+          <div className="w-12 h-12 relative overflow-hidden rounded-none bg-white border border-gray-100 shadow-sm flex items-center justify-center">
             <Building2 className="w-8 h-8 text-[#0067b1]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">TCS Recruitment Drive</h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">TCS <span className="text-[#0067b1] italic">Recruitment Drive</span></h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tcsTests.map((test) => (
-            <div key={test.id} className="bg-white rounded-2xl border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group">
-              <div className="p-6 relative">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#0067b1] to-[#e43d8d]" />
+        <div className="bg-white border border-gray-100 shadow-sm overflow-hidden rounded-none aivalytics-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-50 bg-slate-50/50">
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Assessment Module</th>
+                  <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Duration</th>
+                  <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Inventory</th>
+                  <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {tcsTests.map((test) => (
+                  <motion.tr 
+                    key={test.id} 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="group hover:bg-slate-50 transition-all duration-300"
+                  >
+                    <td className="px-10 py-8">
+                      <div className="flex items-center gap-6">
+                        <div className="w-14 h-14 rounded-none flex items-center justify-center bg-gray-50 border border-gray-100 group-hover:bg-[#0067b1] group-hover:text-white transition-all duration-500 shadow-inner">
+                          {test.title.includes('Coding') ? <Code2 className="w-7 h-7" /> : <FileText className="w-7 h-7" />}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-gray-900 text-lg group-hover:text-[#0067b1] transition-colors tracking-tight">{test.title}</h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-1 line-clamp-1">{test.description || 'Institutional placement simulation.'}</p>
+                        </div>
+                      </div>
+                    </td>
 
-                <div className="flex justify-between items-start mb-6">
-                  <div className="h-10 w-24 relative flex items-center">
-                    <Building2 className="w-8 h-8 text-[#0067b1]" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
-                    <Clock className="w-3 h-3" /> {test.duration} min
-                  </span>
-                </div>
+                    <td className="py-8">
+                      <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-none border border-gray-100 w-fit">
+                        <Clock className="w-3.5 h-3.5 text-[#0067b1]/40" /> {test.duration} MINS
+                      </div>
+                    </td>
 
-                <div className="mb-4">
-                  <h3 className="font-bold text-lg text-gray-900 leading-tight mb-2 group-hover:text-[#0067b1] transition-colors">{test.title}</h3>
-                  <p className="text-sm text-gray-500 line-clamp-2">{test.description || 'Simulate the actual TCS exam environment with official pattern questions.'}</p>
-                </div>
+                    <td className="py-8">
+                      <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <span className="text-gray-900 text-sm">{test.questions || test._count?.questions}</span> Modules
+                      </div>
+                    </td>
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                    <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                      {test.title.includes('Coding') ? <Code2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                    </div>
-                    {test.questions || test._count?.questions} Qs
-                  </div>
-                  <Link href={`/dashboard/test/${test.id}`}>
-                    <Button className="bg-[#0067b1] hover:bg-[#004d80] text-white rounded-xl shadow-lg shadow-blue-900/10 px-6 h-10">
-                      Start Test
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
+                    <td className="px-10 py-8 text-right">
+                      <Link href={`/dashboard/test/${test.id}`}>
+                        <Button className="rounded-none font-black uppercase tracking-widest text-[9px] px-8 py-3 bg-[#0067b1] hover:bg-[#004d80] text-white border-0 shadow-lg shadow-blue-900/10 transition-all duration-300 hover:-translate-y-0.5">
+                          Initialize
+                        </Button>
+                      </Link>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {/* WIPRO SECTION */}
       <div className="space-y-6">
         <div className="flex items-center gap-4 border-l-4 border-[#E63312] pl-4">
-          <div className="w-12 h-12 relative overflow-hidden rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center">
+          <div className="w-12 h-12 relative overflow-hidden rounded-none bg-white border border-gray-100 shadow-sm flex items-center justify-center">
             <Building2 className="w-8 h-8 text-[#E63312]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Wipro NTH Drive</h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">Wipro <span className="text-[#E63312] italic">NTH Drive</span></h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {wiproTests.map((test) => (
-            <div key={test.id} className="bg-white rounded-2xl border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                </div>
-              </div>
+        <div className="bg-white border border-gray-100 shadow-sm overflow-hidden rounded-none aivalytics-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-50 bg-slate-50/50">
+                  <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Assessment Module</th>
+                  <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Duration</th>
+                  <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Inventory</th>
+                  <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {wiproTests.map((test) => (
+                  <motion.tr 
+                    key={test.id} 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="group hover:bg-slate-50 transition-all duration-300"
+                  >
+                    <td className="px-10 py-8">
+                      <div className="flex items-center gap-6">
+                        <div className="w-14 h-14 rounded-none flex items-center justify-center bg-gray-50 border border-gray-100 group-hover:bg-[#E63312] group-hover:text-white transition-all duration-500 shadow-inner">
+                          {test.title.includes('Coding') ? <Code2 className="w-7 h-7" /> : <PlayCircle className="w-7 h-7" />}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-gray-900 text-lg group-hover:text-[#E63312] transition-colors tracking-tight">{test.title}</h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-1 line-clamp-1">{test.description || 'Specialized Wipro NTH assessment.'}</p>
+                        </div>
+                      </div>
+                    </td>
 
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="h-10 w-24 relative flex items-center">
-                    <Building2 className="w-8 h-8 text-[#E63312]" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
-                    <Clock className="w-3 h-3" /> {test.duration} min
-                  </span>
-                </div>
+                    <td className="py-8">
+                      <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-none border border-gray-100 w-fit">
+                        <Clock className="w-3.5 h-3.5 text-[#E63312]/40" /> {test.duration} MINS
+                      </div>
+                    </td>
 
-                <div className="mb-4">
-                  <h3 className="font-bold text-lg text-gray-900 leading-tight mb-2 group-hover:text-purple-600 transition-colors">{test.title}</h3>
-                  <p className="text-sm text-gray-500 line-clamp-2">{test.description || 'Specialized test for Wipro National Talent Hunt.'}</p>
-                </div>
+                    <td className="py-8">
+                      <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <span className="text-gray-900 text-sm">{test.questions || test._count?.questions}</span> Modules
+                      </div>
+                    </td>
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                    <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
-                      {test.title.includes('Coding') ? <Code2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-                    </div>
-                    {test.questions || test._count?.questions} Qs
-                  </div>
-                  <Link href={`/dashboard/test/${test.id}`}>
-                    <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg shadow-purple-900/10 px-6 h-10">
-                      Start Test
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
+                    <td className="px-10 py-8 text-right">
+                      <Link href={`/dashboard/test/${test.id}`}>
+                        <Button className="rounded-none font-black uppercase tracking-widest text-[9px] px-8 py-3 bg-[#E63312] hover:bg-red-700 text-white border-0 shadow-lg shadow-red-900/10 transition-all duration-300 hover:-translate-y-0.5">
+                          Initialize
+                        </Button>
+                      </Link>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

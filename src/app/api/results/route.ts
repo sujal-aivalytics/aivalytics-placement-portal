@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
         if (resultId) {
             // Get specific result
-            const resultDoc = await adminDb.collection("results").doc(resultId).get();
+            const resultDoc = await adminDb.collection("Result").doc(resultId).get();
             if (!resultDoc.exists) {
                 return NextResponse.json({ error: 'Result not found' }, { status: 404 });
             }
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
             // Fetch Related Data
             const [testDoc, userDoc] = await Promise.all([
-                adminDb.collection("tests").doc(result.testId).get(),
+                adminDb.collection("Test").doc(result.testId).get(),
                 adminDb.collection("users").doc(result.userId).get()
             ]);
 
@@ -45,27 +45,37 @@ export async function GET(req: Request) {
             return NextResponse.json({ result });
         } else {
             // Get all results for the user
-            const resultsSnapshot = await adminDb.collection("results")
+            const resultsSnapshot = await adminDb.collection("Result")
                 .where("userId", "==", session.user.id)
                 .get();
 
             let results = await Promise.all(resultsSnapshot.docs.map(async (doc) => {
                 const data = doc.data() as any;
-                const testDoc = await adminDb.collection("tests").doc(data.testId).get();
+                const testDoc = await adminDb.collection("Test").doc(data.testId).get();
 
                 return {
                     ...data,
                     id: doc.id,
                     test: testDoc.exists ? { id: testDoc.id, ...testDoc.data() } : null,
-                    percentage: data.total > 0 ? Math.round((data.score / data.total) * 100) : 0
+                    percentage: data.total > 0 ? Math.round((data.score / data.total) * 100) : 0,
+                    _createdAt: data.createdAt // Keep original for sorting
                 };
             }));
 
             // In-memory sort by 'createdAt' descending
             results.sort((a: any, b: any) => {
-                const dateA = a.createdAt?.seconds || 0;
-                const dateB = b.createdAt?.seconds || 0;
+                const dateA = a._createdAt?.seconds || 0;
+                const dateB = b._createdAt?.seconds || 0;
                 return dateB - dateA;
+            });
+
+            // Final cleanup
+            results = results.map(r => {
+                const { _createdAt, ...rest } = r;
+                return {
+                    ...rest,
+                    createdAt: _createdAt?.toDate ? _createdAt.toDate().toISOString() : _createdAt
+                };
             });
 
             return NextResponse.json({ results });
@@ -88,7 +98,7 @@ export async function POST(req: Request) {
         const { testTitle, testType, company, score, total, duration } = body;
 
         // Try to find existing test
-        const testSnapshot = await adminDb.collection("tests")
+        const testSnapshot = await adminDb.collection("Test")
             .where("title", "==", testTitle)
             .where("type", "==", testType)
             .where("company", "==", company)
@@ -98,7 +108,7 @@ export async function POST(req: Request) {
         let testId;
         if (testSnapshot.empty) {
             // Create placeholder test
-            const testRef = adminDb.collection("tests").doc();
+            const testRef = adminDb.collection("Test").doc();
             await testRef.set({
                 title: testTitle,
                 description: `${company} placement test`,
@@ -115,7 +125,7 @@ export async function POST(req: Request) {
         }
 
         // Create result
-        const resultRef = adminDb.collection("results").doc();
+        const resultRef = adminDb.collection("Result").doc();
         const resultData = {
             id: resultRef.id,
             userId: session.user.id,

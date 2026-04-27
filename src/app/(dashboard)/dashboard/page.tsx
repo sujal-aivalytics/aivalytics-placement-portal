@@ -135,8 +135,11 @@ export default function UserDashboard() {
 
         // Stats Calculation
         const testsTaken = results.length;
-        const totalPercentage = results.reduce((sum: number, r: ApiResult) => sum + (r.score / r.total) * 100, 0);
-        const avgScore = Math.round(totalPercentage / testsTaken);
+        const totalPercentage = results.reduce((sum: number, r: ApiResult) => {
+          const percentage = r.total > 0 ? (r.score / r.total) * 100 : 0;
+          return sum + percentage;
+        }, 0);
+        const avgScore = testsTaken > 0 ? Math.round(totalPercentage / testsTaken) : 0;
 
         setStats({ testsTaken, avgScore, accuracy: avgScore, strongestTopic: "Logic" }); // Mock logic for topic
 
@@ -145,7 +148,7 @@ export default function UserDashboard() {
           id: r.id,
           name: r.test?.title || 'Assessment',
           score: r.score,
-          percentage: Math.round((r.score / r.total) * 100),
+          percentage: r.total > 0 ? Math.round((r.score / r.total) * 100) : 0,
           date: new Date(r.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
           status: 'Done'
         })));
@@ -153,7 +156,7 @@ export default function UserDashboard() {
         // Chart Data
         setChartData(results.slice(0, 7).reverse().map((r: ApiResult, i: number) => ({
           name: `Test ${i + 1}`,
-          score: Math.round((r.score / r.total) * 100),
+          score: r.total > 0 ? Math.round((r.score / r.total) * 100) : 0,
         })));
       }
     } catch (error) {
@@ -161,7 +164,7 @@ export default function UserDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     fetchData();

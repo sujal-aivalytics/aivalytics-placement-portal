@@ -101,54 +101,101 @@ export default function TopicsPage() {
       </motion.div>
 
       {tests.length === 0 ? (
-        <motion.div variants={item} className="text-center py-32 bg-white rounded-none border-2 border-dashed border-gray-100 shadow-inner">
-          <div className="w-20 h-20 bg-gray-50 rounded-none flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <BookOpen className="w-10 h-10 text-gray-200" />
+        <motion.div variants={item} className="text-center py-32 bg-[#0f1115] rounded-[3rem] border border-gray-800/50 shadow-2xl overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="relative z-10">
+            <div className="w-20 h-20 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+              <BookOpen className="w-10 h-10 text-gray-700" />
+            </div>
+            <h3 className="font-black text-gray-200 text-xl uppercase tracking-[0.3em]">Registry Empty</h3>
+            <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px] mt-4 max-w-xs mx-auto leading-relaxed">
+              No curriculum modules have been synchronized with the core database yet.
+            </p>
           </div>
-          <h3 className="font-black text-gray-900 text-xl uppercase tracking-widest">No Modules Identified</h3>
-          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">Check back later for new curriculum updates.</p>
         </motion.div>
       ) : (
-        <motion.div variants={item} className="grid gap-10 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {tests.map((test) => (
-            <Card key={test.id} className="group flex flex-col border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden bg-white rounded-none relative h-full aivalytics-card">
-              {/* Color Accent */}
-              <div className={`absolute top-0 left-0 w-full h-1.5 ${getAccentColor(test.title)}`} />
+        <motion.div variants={item} className="overflow-hidden rounded-3xl border border-white/5 bg-background shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.01]">
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Module Core</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Complexity</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Inventory</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 text-right">Synchronization</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {tests.map((test) => (
+                  <motion.tr
+                    key={test.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
+                    className="group transition-all duration-300 relative"
+                  >
+                    {/* Module Core */}
+                    <td className="px-8 py-8">
+                      <div className="flex items-center gap-6">
+                        <div className="relative">
+                          <div className={`absolute -inset-2 rounded-xl opacity-20 blur-lg transition-all duration-500 group-hover:opacity-40 ${getAccentColor(test.title)}`} />
+                          <div className="relative w-16 h-16 rounded-xl bg-[#1a1d23] border border-white/10 flex items-center justify-center shadow-2xl transition-transform duration-500 group-hover:scale-110 overflow-hidden">
+                            {getTopicIcon(test.title)}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-black text-gray-600 tracking-tight group-hover:text-primary transition-colors">
+                              {test.title}
+                            </h3>
+                            {test.title.toLowerCase().includes('tcs') || test.title.toLowerCase().includes('wipro') ? (
+                              <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-none font-black uppercase tracking-widest text-[8px] h-4 px-2">Corporate</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Aptitude & Assessment Registry</p>
+                        </div>
+                      </div>
+                    </td>
 
-              <CardContent className="p-10 flex flex-col h-full">
-                <div className="flex items-start justify-between mb-8">
-                  <div className="w-16 h-16 rounded-none bg-gray-50 border border-gray-100 flex items-center justify-center shadow-inner group-hover:bg-primary/5 transition-colors duration-500">
-                    {getTopicIcon(test.title)}
-                  </div>
-                  {test.title.toLowerCase().includes('tcs') || test.title.toLowerCase().includes('wipro') ? (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 rounded-none font-black uppercase tracking-widest text-[8px] px-3 py-1">Premium</Badge>
-                  ) : (
-                    <div className="w-3 h-3 rounded-none bg-primary ring-4 ring-primary/10" />
-                  )}
-                </div>
+                    {/* Complexity */}
+                    <td className="px-8 py-8">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center w-24">
+                          <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Level</span>
+                          <span className="text-[9px] font-black text-primary uppercase tracking-widest">Advanced</span>
+                        </div>
+                        <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
+                          <div className={`h-full w-[75%] rounded-full ${getAccentColor(test.title)}`} />
+                        </div>
+                      </div>
+                    </td>
 
-                <div className="mb-8">
-                   <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2">Practice Set</p>
-                  <h3 className="text-2xl font-black text-gray-900 group-hover:text-primary transition-colors tracking-tight leading-none">
-                    {test.title}
-                  </h3>
-                </div>
+                    {/* Inventory */}
+                    <td className="px-8 py-8">
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <div className="p-2 rounded-lg bg-white/5 border border-white/10 group-hover:border-primary/20 transition-colors">
+                          <HelpCircle className="w-4 h-4 text-gray-500 group-hover:text-primary transition-colors" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-gray-500 tracking-tighter">{test._count?.questions || 0}</span>
+                          <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.1em]">Target Problems</span>
+                        </div>
+                      </div>
+                    </td>
 
-                <div className="mt-auto pt-8 border-t border-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    <HelpCircle className="w-4 h-4 text-primary/40" />
-                    {test._count?.questions || 0} Questions
-                  </div>
-
-                  <Link href={`/dashboard/test/${test.id}/subtopics`} className="w-full ml-6">
-                    <Button className="w-full bg-gray-900 hover:bg-black text-white rounded-none shadow-xl transition-all font-black uppercase tracking-[0.2em] h-12 text-[10px] hover:-translate-y-1">
-                      Assess
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Synchronization (Action) */}
+                    <td className="px-8 py-8 text-right">
+                      <Link href={`/dashboard/test/${test.id}/subtopics`} className="inline-block">
+                        <Button className="bg-white/[0.03] hover:bg-primary hover:text-white text-gray-400 border border-white/10 rounded-xl px-8 h-12 transition-all duration-300 font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl active:scale-95 group-hover:border-primary/50 group-hover:shadow-primary/20">
+                          Initialize
+                        </Button>
+                      </Link>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </motion.div>
       )}
     </motion.div>

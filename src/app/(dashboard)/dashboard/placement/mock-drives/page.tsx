@@ -84,68 +84,80 @@ export default function MockDrivesPage() {
                     </div>
                 </div>
 
-                {/* Main Content Grid */}
+                {/* Main Content Table */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white rounded-[2rem] border border-slate-200 shadow-sm mb-12">
+                    <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-[2rem] border border-slate-200 shadow-sm mb-12">
                         <Loader2 className="animate-spin text-indigo-600 w-12 h-12" />
-                        <p className="text-slate-500 font-semibold tracking-tight animate-pulse uppercase text-sm">Synchronizing Assessment Data...</p>
+                        <p className="text-slate-500 font-black uppercase text-xs tracking-[0.2em] animate-pulse">Synchronizing Assessment Registry...</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-                        {drives.map((drive) => (
-                            <div key={drive.id} className="relative bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all hover:-translate-y-2 group border border-slate-200">
-                                {/* Top Gradient Bar */}
-                                <div className={`h-1.5 w-full bg-gradient-to-r ${getCompanyColor(drive.companyName)}`}></div>
+                    <div className="bg-white border border-slate-200 shadow-sm overflow-hidden rounded-[2rem] mb-16">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-50 bg-slate-50/50">
+                                        <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Company Target</th>
+                                        <th className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Assessment Core</th>
+                                        <th className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Inventory</th>
+                                        <th className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</th>
+                                        <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {drives.map((drive) => (
+                                        <tr key={drive.id} className="group hover:bg-slate-50 transition-all duration-300">
+                                            <td className="px-10 py-8">
+                                                <div className="flex items-center gap-6">
+                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br ${getCompanyColor(drive.companyName)} text-white shadow-lg shadow-indigo-200 transition-transform duration-500 group-hover:scale-110`}>
+                                                        <Briefcase className="w-6 h-6" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-slate-900 text-lg group-hover:text-indigo-600 transition-colors tracking-tight uppercase">
+                                                            {drive.companyName}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Active Drive</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                <div className="p-8">
-                                    <div className="flex justify-between items-center mb-10">
-                                        <h4 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${getCompanyColor(drive.companyName)} uppercase tracking-wider`}>
-                                            {drive.companyName}
-                                        </h4>
-                                        <div className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md shadow-sm">NEW</div>
-                                    </div>
+                                            <td className="py-8">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">{drive.title || `${drive.companyName} Drive`}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest line-clamp-1 max-w-[200px]">
+                                                        {drive.description || "Proctored Corporate Simulation"}
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                                    <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight leading-tight">
-                                        {drive.title || `${drive.companyName} Drive`}
-                                    </h3>
+                                            <td className="py-8">
+                                                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    <Target className="w-4 h-4 text-slate-300" />
+                                                    <span className="text-slate-900 text-sm">{drive.totalQuestions || 0}</span> Modules
+                                                </div>
+                                            </td>
 
-                                    <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed line-clamp-2 min-h-[40px]">
-                                        {drive.description || "Comprehensive assessment covering technical and aptitude rounds for high-performance roles."}
-                                    </p>
+                                            <td className="py-8">
+                                                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    <Clock className="w-4 h-4 text-slate-300" />
+                                                    <span className="text-slate-900 text-sm">{drive.totalDuration || 180}</span> Mins
+                                                </div>
+                                            </td>
 
-                                    {/* Stats Grid */}
-                                    <div className="grid grid-cols-2 gap-4 mb-10">
-                                        <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 flex flex-col items-start gap-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Difficulty</p>
-                                            <p className="text-sm font-bold text-slate-700">Medium</p>
-                                        </div>
-                                        <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 flex flex-col items-start gap-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Duration</p>
-                                            <p className="text-sm font-bold text-slate-700">{drive.totalDuration || 180} Mins</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Footer Details */}
-                                    <div className="flex flex-col gap-3 mb-8">
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <Target className="w-4 h-4" />
-                                            <span className="text-xs font-semibold">{drive.totalQuestions || 0} Questions</span>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <Monitor className="w-4 h-4" />
-                                            <span className="text-xs font-semibold">Proctored Mode</span>
-                                        </div>
-                                    </div>
-
-                                    <Link href={`/dashboard/placement/mock-drives/${drive.id}`}>
-                                        <Button className="w-full h-14 bg-[#1e293b] hover:bg-black text-white rounded-2xl font-black text-md tracking-tight flex items-center justify-center gap-3 group/btn shadow-xl transition-all shadow-slate-200">
-                                            Start Drive
-                                            <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </div>
-                        ))}
+                                            <td className="px-10 py-8 text-right">
+                                                <Link href={`/dashboard/placement/mock-drives/${drive.id}`}>
+                                                    <Button className="bg-slate-900 hover:bg-black text-white rounded-xl px-8 h-12 transition-all duration-300 font-black uppercase tracking-[0.2em] text-[10px] shadow-xl group-hover:shadow-indigo-100">
+                                                        Initialize
+                                                    </Button>
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 

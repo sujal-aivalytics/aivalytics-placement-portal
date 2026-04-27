@@ -14,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const problemsSnapshot = await adminDb.collection("problems")
+    const problemsSnapshot = await adminDb.collection("Problem")
       .orderBy('createdAt', 'desc')
       .get();
 
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       description,
       constraints,
       difficulty,
+      category,
       type,
       expectedTime,
       expectedSpace,
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const problemRef = adminDb.collection("problems").doc();
+    const problemRef = adminDb.collection("Problem").doc();
     const now = admin.firestore.Timestamp.now();
 
     const problemData = {
@@ -74,7 +75,8 @@ export async function POST(req: Request) {
       description,
       constraints: constraints || '',
       difficulty: difficulty || 'Easy',
-      type: type || 'DSA',
+      category: category || 'DSA',
+      type: type || 'Arrays',
       expectedTime: expectedTime || 'O(n)',
       expectedSpace: expectedSpace || 'O(1)',
       examples: Array.isArray(examples) ? examples : [],
@@ -129,7 +131,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    const problemRef = adminDb.collection("problems").doc(id);
+    const problemRef = adminDb.collection("Problem").doc(id);
     const problemDoc = await problemRef.get();
 
     if (!problemDoc.exists) {
@@ -148,6 +150,7 @@ export async function PUT(req: Request) {
     if (updateData.description !== undefined) updatePayload.description = updateData.description;
     if (updateData.constraints !== undefined) updatePayload.constraints = updateData.constraints;
     if (updateData.difficulty !== undefined) updatePayload.difficulty = updateData.difficulty;
+    if (updateData.category !== undefined) updatePayload.category = updateData.category;
     if (updateData.type !== undefined) updatePayload.type = updateData.type;
     if (updateData.expectedTime !== undefined) updatePayload.expectedTime = updateData.expectedTime;
     if (updateData.expectedSpace !== undefined) updatePayload.expectedSpace = updateData.expectedSpace;
@@ -194,7 +197,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await adminDb.collection("problems").doc(id).delete();
+    await adminDb.collection("Problem").doc(id).delete();
 
     return NextResponse.json({
       success: true,

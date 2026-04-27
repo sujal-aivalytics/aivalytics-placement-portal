@@ -13,7 +13,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userDoc = await adminDb.collection("User").doc(session.user.id).get();
+        const userDoc = await adminDb.collection("users").doc(session.user.id).get();
         if (!userDoc.exists) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
@@ -62,7 +62,7 @@ export async function PATCH(req: Request) {
         if (department !== undefined) updateData.department = department;
         if (yearOfGraduation !== undefined) updateData.yearOfGraduation = yearOfGraduation;
 
-        await adminDb.collection("User").doc(session.user.id).update(updateData);
+        await adminDb.collection("users").doc(session.user.id).update(updateData);
 
         return NextResponse.json({ message: 'Profile updated successfully' });
     } catch (error: any) {

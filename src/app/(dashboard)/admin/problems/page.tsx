@@ -30,7 +30,8 @@ export default function CreateProblemPage() {
     description: "",
     constraints: "",
     difficulty: "Easy",
-    type: "DSA",
+    category: "DSA",
+    type: "Arrays",
     expectedTime: "O(n)",
     expectedSpace: "O(1)",
     examples: "",
@@ -300,9 +301,10 @@ export default function CreateProblemPage() {
           <div className="space-y-6">
             <Input name="title" label="Problem Title" placeholder="e.g. Palindrome Number" onChange={handleChange} />
 
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-3 gap-8">
               <Select name="difficulty" label="Difficulty Level" onChange={handleChange} options={["Easy", "Medium", "Hard"]} />
-              <Select name="type" label="Problem Category" onChange={handleChange} options={["DSA", "SQL", "MCQ"]} />
+              <Select name="category" label="Problem Category" onChange={handleChange} options={["DSA", "SQL", "MCQ"]} />
+              <Select name="type" label="Problem Type" onChange={handleChange} options={["Arrays", "Strings", "DP", "Graphs", "Math"]} />
             </div>
 
             <Textarea name="description" label="Description (Markdown)" placeholder="Explain the problem clearly..." onChange={handleChange} />

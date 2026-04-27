@@ -133,9 +133,16 @@ export default function ProfilePage() {
     if (!validateNumber(user.tenthPercentage, 0, 100, "10th percentage")) return;
     if (!validateNumber(user.twelfthPercentage, 0, 100, "12th percentage")) return;
 
-    if (!user.phone || user.graduationCGPA === null || user.tenthPercentage === null || user.twelfthPercentage === null) {
-      toast.error("Please fill in all required fields (Phone, Grades)!");
-      return;
+    if (user.role !== 'admin') {
+      if (!user.phone || user.graduationCGPA === null || user.tenthPercentage === null || user.twelfthPercentage === null) {
+        toast.error("Please fill in all required fields (Phone, Grades)!");
+        return;
+      }
+    } else {
+      if (!user.phone) {
+        toast.error("Please fill in all required fields (Phone)!");
+        return;
+      }
     }
 
     setSaving(true);
@@ -269,67 +276,69 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="pt-5 border-t border-gray-100">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 bg-primary/10 rounded-none text-primary">
-                  <GraduationCap className="w-5 h-5" />
+            {user.role !== 'admin' && (
+              <div className="pt-5 border-t border-gray-100">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="p-2.5 bg-primary/10 rounded-none text-primary">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-primary font-bold uppercase tracking-wider">Academic Records</p>
+                    <h3 className="text-base font-bold text-gray-900">Educational Performance</h3>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-primary font-bold uppercase tracking-wider">Academic Records</p>
-                  <h3 className="text-base font-bold text-gray-900">Educational Performance</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Graduation CGPA <span className="text-primary">*</span></label>
+                    <Input
+                      type="number" step="0.01" max="10"
+                      className={cn(
+                        "h-11 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
+                        (!user.graduationCGPA && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
+                      )}
+                      placeholder="8.5"
+                      value={user.graduationCGPA ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUser({ ...user, graduationCGPA: val === '' ? null : parseFloat(val) });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-caption text-gray-500 font-semibold uppercase tracking-wide">12th Percentage <span className="text-primary">*</span></label>
+                    <Input
+                      type="number" step="0.01" max="100"
+                      className={cn(
+                        "h-12 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
+                        (!user.twelfthPercentage && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
+                      )}
+                      placeholder="85.5"
+                      value={user.twelfthPercentage ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUser({ ...user, twelfthPercentage: val === '' ? null : parseFloat(val) });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-caption text-gray-500 font-semibold uppercase tracking-wide">10th Percentage <span className="text-primary">*</span></label>
+                    <Input
+                      type="number" step="0.01" max="100"
+                      className={cn(
+                        "h-12 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
+                        (!user.tenthPercentage && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
+                      )}
+                      placeholder="90.0"
+                      value={user.tenthPercentage ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUser({ ...user, tenthPercentage: val === '' ? null : parseFloat(val) });
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="space-y-2">
-                  <label className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Graduation CGPA <span className="text-primary">*</span></label>
-                  <Input
-                    type="number" step="0.01" max="10"
-                    className={cn(
-                      "h-11 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
-                      (!user.graduationCGPA && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
-                    )}
-                    placeholder="8.5"
-                    value={user.graduationCGPA ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setUser({ ...user, graduationCGPA: val === '' ? null : parseFloat(val) });
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-caption text-gray-500 font-semibold uppercase tracking-wide">12th Percentage <span className="text-primary">*</span></label>
-                  <Input
-                    type="number" step="0.01" max="100"
-                    className={cn(
-                      "h-12 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
-                      (!user.twelfthPercentage && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
-                    )}
-                    placeholder="85.5"
-                    value={user.twelfthPercentage ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setUser({ ...user, twelfthPercentage: val === '' ? null : parseFloat(val) });
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-caption text-gray-500 font-semibold uppercase tracking-wide">10th Percentage <span className="text-primary">*</span></label>
-                  <Input
-                    type="number" step="0.01" max="100"
-                    className={cn(
-                      "h-12 rounded-none border-gray-200 bg-white focus:bg-white transition-all font-medium focus:ring-0 focus:border-primary",
-                      (!user.tenthPercentage && isIncomplete) ? 'border-primary ring-2 ring-primary/10' : ''
-                    )}
-                    placeholder="90.0"
-                    value={user.tenthPercentage ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setUser({ ...user, tenthPercentage: val === '' ? null : parseFloat(val) });
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+            )}
 
             <div className="pt-6 border-t border-gray-100">
               <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-3">Profile Picture</p>
@@ -355,19 +364,21 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="pt-5 border-t border-gray-100">
-              <div className="flex items-center justify-between p-5 bg-primary/5 border border-primary/20 rounded-none">
-                <div>
-                  <h4 className="text-base font-bold text-gray-900">Auto Payout</h4>
-                  <p className="text-[11px] text-gray-500 mt-1">Enable automatic payouts to your account</p>
+            {user.role !== 'admin' && (
+              <div className="pt-5 border-t border-gray-100">
+                <div className="flex items-center justify-between p-5 bg-primary/5 border border-primary/20 rounded-none">
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900">Auto Payout</h4>
+                    <p className="text-[11px] text-gray-500 mt-1">Enable automatic payouts to your account</p>
+                  </div>
+                  <Switch
+                    checked={user.autoPayout}
+                    onCheckedChange={(checked) => setUser({ ...user, autoPayout: checked })}
+                    className="data-[state=checked]:bg-primary"
+                  />
                 </div>
-                <Switch
-                  checked={user.autoPayout}
-                  onCheckedChange={(checked) => setUser({ ...user, autoPayout: checked })}
-                  className="data-[state=checked]:bg-primary"
-                />
               </div>
-            </div>
+            )}
           </motion.div>
         );
       case 'security':

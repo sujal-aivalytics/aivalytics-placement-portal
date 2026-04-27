@@ -2,11 +2,12 @@
 "use client";
 
 import React from "react";
-import { Bell, Menu, Search, User } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,6 +22,17 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ setMobileOpen }: DashboardHeaderProps) {
+    const { data: session } = useSession();
+
+    const user = session?.user;
+    const name = user?.name ?? user?.email ?? "User";
+    const initials = name
+        .split(" ")
+        .map((n: string) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+
     return (
         <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 bg-white/80 border-b border-gray-200 px-6 backdrop-blur-sm transition-all">
             {/* Mobile Toggle */}
@@ -95,14 +107,33 @@ export function DashboardHeader({ setMobileOpen }: DashboardHeaderProps) {
                 {/* Profile Dropdown */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full overflow-hidden border border-gray-200 w-8 h-8 md:w-9 md:h-9 p-0">
-                            <div className="bg-emerald-100 w-full h-full flex items-center justify-center text-emerald-700 font-bold text-xs">
-                                JD
-                            </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full overflow-hidden border-2 border-gray-200 hover:border-primary/40 w-9 h-9 p-0 transition-all"
+                        >
+                            {user?.image ? (
+                                <Image
+                                    src={user.image}
+                                    alt={name}
+                                    width={36}
+                                    height={36}
+                                    className="w-full h-full object-cover rounded-full"
+                                />
+                            ) : (
+                                <div className="bg-gradient-to-br from-primary/20 to-primary/40 w-full h-full flex items-center justify-center text-primary font-bold text-xs rounded-full">
+                                    {initials}
+                                </div>
+                            )}
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                        <DropdownMenuLabel className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-sm truncate">{name}</span>
+                            {user?.email && (
+                                <span className="text-xs text-gray-400 font-normal truncate">{user.email}</span>
+                            )}
+                        </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild className="cursor-pointer">
                             <Link href="/dashboard/profile" className="w-full">Profile</Link>
@@ -111,7 +142,7 @@ export function DashboardHeader({ setMobileOpen }: DashboardHeaderProps) {
                             <Link href="/dashboard/settings" className="w-full">Settings</Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                             className="text-red-600 focus:text-red-600 cursor-pointer"
                             onClick={() => signOut({ callbackUrl: "/login" })}
                         >
