@@ -12,7 +12,7 @@ export async function GET(req: Request) {
         }
 
         // 1. Top Performers (Top 10 by average score across results)
-        const resultsSnapshot = await adminDb.collection("results").get();
+        const resultsSnapshot = await adminDb.collection("Result").get();
         const userScores: Record<string, { total: number, count: number }> = {};
 
         resultsSnapshot.docs.forEach(doc => {
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
         );
 
         // 2. Performance Analysis (Topic & Company)
-        const testsSnapshot = await adminDb.collection("tests").get();
+        const testsSnapshot = await adminDb.collection("Test").get();
         const testsMap = new Map();
         testsSnapshot.docs.forEach(doc => testsMap.set(doc.id, doc.data()));
 

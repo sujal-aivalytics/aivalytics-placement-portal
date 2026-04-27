@@ -174,94 +174,143 @@ export default function SubtopicsPage({ params }: { params: Promise<{ id: string
       </motion.div>
 
       {subtopics.length === 0 ? (
-        <motion.div variants={item} className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <motion.div variants={item} className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10 backdrop-blur-sm">
+          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/10">
             <BookOpen className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="font-bold text-gray-900 text-lg">No Subtopics Found</h3>
-          <p className="text-gray-500">This topic doesn't have any subtopics yet.</p>
+          <h3 className="font-bold text-white text-lg">No Subtopics Found</h3>
+          <p className="text-gray-400">This topic doesn't have any subtopics yet.</p>
           <Button
             onClick={() => router.push(`/dashboard/test/${testId}`)}
-            className="mt-4 bg-blue-600 hover:bg-blue-700"
+            className="mt-6 bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/20"
           >
             Take Full Test Instead
           </Button>
         </motion.div>
       ) : (
-        <motion.div variants={item} className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {subtopics.map((subtopic) => (
-            <Card
-              key={subtopic.id}
-              className="group flex flex-col border-0 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden bg-white rounded-none relative h-full hover:-translate-y-2"
-            >
-              {/* Status Indicator */}
-              <div className={`absolute top-0 left-0 w-full h-2 ${subtopic.progress?.completed
-                  ? 'bg-primary'
-                  : subtopic.progress?.attempted
-                    ? 'bg-yellow-500'
-                    : 'bg-gray-300'
-                }`} />
-
-              <CardContent className="p-8 flex flex-col h-full">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="w-16 h-16 rounded-none bg-gradient-to-br from-primary/10 to-primary/20 border-l-4 border-primary flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
-                    <BookOpen className="w-7 h-7 text-primary" strokeWidth={2.5} />
-                  </div>
-                  {getStatusBadge(subtopic)}
-                </div>
-
-                <div className="mb-6 flex-1">
-                  <h3 className="text-xl font-black text-gray-900 group-hover:text-primary transition-colors line-clamp-2 leading-tight mb-3 tracking-tight">
-                    {subtopic.name}
-                  </h3>
-                  {subtopic.description && (
-                    <p className="text-sm text-gray-500 line-clamp-2 font-medium">
-                      {subtopic.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Progress Info */}
-                {subtopic.progress?.completed && (
-                  <div className="mb-6 p-4 bg-primary/5 rounded-none border-l-4 border-primary shadow-md">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 font-black uppercase tracking-wider text-xs">Score:</span>
-                      <span className="font-black text-primary text-lg">
-                        {subtopic.progress.score}/{subtopic.progress.total} ({Math.round(subtopic.progress.percentage)}%)
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-auto pt-6 border-t-2 border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-black text-gray-500 bg-gray-100 px-4 py-2 rounded-none uppercase tracking-wider">
-                    <BookOpen className="w-4 h-4" />
-                    {subtopic.totalQuestions} Questions
-                  </div>
-
-                  <Button
-                    onClick={() => router.push(`/dashboard/test/${testId}/subtopic/${subtopic.id}`)}
-                    className="bg-gray-900 hover:bg-primary text-white rounded-none shadow-xl group-hover:shadow-2xl transition-all duration-500 font-black h-12 text-xs px-8 uppercase tracking-wider hover:-translate-y-1"
+        <motion.div variants={item} className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/80 backdrop-blur-xl shadow-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 w-24">Status</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Module / Topic</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 w-40">Performance</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 w-32">Questions</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 w-32 text-right whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {subtopics.map((subtopic) => (
+                  <motion.tr
+                    key={subtopic.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
+                    className="group transition-colors relative"
                   >
-                    {subtopic.progress?.completed ? 'Retry' : 'Start'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Status Column */}
+                    <td className="px-6 py-6 align-middle">
+                      {subtopic.progress?.completed ? (
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                      ) : subtopic.progress?.attempted ? (
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 animate-pulse">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 border border-white/10 text-gray-500">
+                          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Module Column */}
+                    <td className="px-6 py-6">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-bold text-white group-hover:text-cyan-400 transition-colors tracking-tight">
+                            {subtopic.name}
+                          </h4>
+                          {subtopic.progress?.completed && (
+                            <Badge className="bg-emerald-500/10 text-emerald-400 border-none text-[9px] uppercase tracking-wider h-4 px-1.5">Mastered</Badge>
+                          )}
+                        </div>
+                        {subtopic.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 font-medium max-w-md">
+                            {subtopic.description}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Progress Column */}
+                    <td className="px-6 py-6">
+                      {subtopic.progress ? (
+                        <div className="space-y-2 max-w-[140px]">
+                          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
+                            <span className="text-gray-500">Score</span>
+                            <span className={subtopic.progress.percentage >= 80 ? 'text-emerald-400' : 'text-cyan-400'}>
+                              {Math.round(subtopic.progress.percentage)}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${subtopic.progress.percentage}%` }}
+                              className={`h-full rounded-full ${
+                                subtopic.progress.percentage >= 80 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Pending</span>
+                      )}
+                    </td>
+
+                    {/* Questions Column */}
+                    <td className="px-6 py-6">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
+                          <BookOpen className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-bold">{subtopic.totalQuestions} Problems</span>
+                      </div>
+                    </td>
+
+                    {/* Action Column */}
+                    <td className="px-6 py-6 text-right">
+                      <Button
+                        onClick={() => router.push(`/dashboard/test/${testId}/subtopic/${subtopic.id}`)}
+                        size="sm"
+                        className={`rounded-xl px-6 font-black text-[10px] uppercase tracking-widest h-9 transition-all active:scale-95 ${
+                          subtopic.progress?.completed
+                            ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
+                            : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/20 border border-cyan-400/20'
+                        }`}
+                      >
+                        {subtopic.progress?.completed ? 'Revision' : 'Solve +'}
+                      </Button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </motion.div>
       )}
 
-      {/* Summary Button - Show after all completed */}
-      {completedCount >=1 && totalSubtopics > 0 && (
-        <motion.div variants={item} className="flex justify-center pt-8">
+      {/* Summary Button */}
+      {completedCount >= 1 && totalSubtopics > 0 && (
+        <motion.div variants={item} className="flex justify-center pt-10">
           <Button
             onClick={() => router.push(`/dashboard/test/${testId}/summary`)}
-            size="lg"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-2xl shadow-xl px-12 py-6 text-lg font-bold"
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl shadow-2xl shadow-emerald-900/20 px-12 py-7 text-sm font-black uppercase tracking-[0.2em] transition-all hover:-translate-y-1 active:translate-y-0"
           >
-            <Trophy className="w-5 h-5 mr-2" />
-            View Topic Summary
+            <Trophy className="w-5 h-5 mr-3" />
+            Claim Topic Certification
           </Button>
         </motion.div>
       )}

@@ -12,7 +12,7 @@ export async function GET(req: Request) {
         }
 
         // Fetch counts from Firestore
-        const studentsSnapshot = await adminDb.collection("User").where("role", "==", "student").get();
+        const studentsSnapshot = await adminDb.collection("users").where("role", "==", "student").get();
         const totalStudents = studentsSnapshot.size;
 
         const testsSnapshot = await adminDb.collection("Test").get();
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
             const data = doc.data();
 
             // Join User
-            const userDoc = await adminDb.collection("User").doc(data.userId).get();
+            const userDoc = await adminDb.collection("users").doc(data.userId).get();
             const userData = userDoc.data();
 
             // Join Placement

@@ -108,116 +108,152 @@ export default function MyTestsPage() {
 
       {companyTests.length > 0 && (
         <motion.div variants={item} className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 rounded-xl">
-              <Building2 className="h-6 w-6 text-emerald-600" />
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+              <Building2 className="h-6 w-6 text-emerald-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">Company Tests</h2>
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight uppercase">Corporate Challenges</h2>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Industry standard assessments</p>
+            </div>
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {companyTests.map(({ test }) => (
-              <Card key={test.id} className="group h-full flex flex-col border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 hover:border-emerald-200 bg-white/50 backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex justify-between items-start mb-3">
-                    <Badge variant="outline" className="bg-white text-xs font-medium border-emerald-100 text-emerald-700">
-                      {test.company}
-                    </Badge>
-                    <Badge
-                      variant={test.difficulty === 'Easy' ? 'secondary' : test.difficulty === 'Medium' ? 'default' : 'destructive'}
-                      className="text-xs rounded-lg px-2"
+          
+          <div className="overflow-hidden rounded-3xl border border-white/5 bg-[#0d0f14] shadow-2xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/[0.01]">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Assessment</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Category</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Metrics</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Operation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {companyTests.map(({ test }) => (
+                    <motion.tr
+                      key={test.id}
+                      whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
+                      className="group transition-all duration-300"
                     >
-                      {test.difficulty}
-                    </Badge>
-                  </div>
-                  <CardTitle className="flex items-center gap-2 text-xl group-hover:text-emerald-700 transition-colors">
-                    {test.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1 flex flex-col">
-                  {test.description && (
-                    <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
-                      {test.description}
-                    </p>
-                  )}
-                  <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-4">
-                    <div className="flex justify-between text-sm font-medium text-gray-500">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4 text-emerald-500" />
-                        {test.duration} mins
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <BarChart3 className="h-4 w-4 text-emerald-500" />
-                        Assessment
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 group-hover:shadow-blue-300 transition-all rounded-xl"
-                      onClick={() => handleStartTest(test.id)}
-                    >
-                      Start Test <PlayCircle className="ml-2 w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <td className="px-8 py-6">
+                        <div className="space-y-1">
+                          <h4 className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors tracking-tight">
+                            {test.title}
+                          </h4>
+                          <p className="text-xs text-gray-500 line-clamp-1 max-w-md">{test.description}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-none font-black uppercase tracking-widest text-[9px]">
+                          {test.company}
+                        </Badge>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Time</span>
+                            <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-emerald-500" /> {test.duration}m
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Rank</span>
+                            <Badge className="h-4 text-[8px] font-black uppercase tracking-tighter bg-white/5 text-gray-400 border-none">
+                              {test.difficulty}
+                            </Badge>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <Button
+                          onClick={() => handleStartTest(test.id)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-8 font-black uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-900/20 border border-emerald-400/20 active:scale-95"
+                        >
+                          Execute <PlayCircle className="ml-2 w-3.5 h-3.5" />
+                        </Button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </motion.div>
       )}
 
       {topicTests.length > 0 && (
-        <motion.div variants={item} className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-teal-100 rounded-xl">
-              <BookOpen className="h-6 w-6 text-teal-600" />
+        <motion.div variants={item} className="space-y-6 pt-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-cyan-500/10 rounded-2xl border border-cyan-500/20">
+              <BookOpen className="h-6 w-6 text-cyan-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">Topic Tests</h2>
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight uppercase">Module Mastery</h2>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Focused skill synchronization</p>
+            </div>
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {topicTests.map(({ test }) => (
-              <Card key={test.id} className="group h-full flex flex-col border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 hover:border-teal-200 bg-white/50 backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex justify-between items-start mb-3">
-                    <Badge variant="outline" className="bg-white text-xs font-medium border-teal-100 text-teal-700">
-                      {test.topic}
-                    </Badge>
-                    <Badge
-                      variant={test.difficulty === 'Easy' ? 'secondary' : test.difficulty === 'Medium' ? 'default' : 'destructive'}
-                      className="text-xs rounded-lg px-2"
+
+          <div className="overflow-hidden rounded-3xl border border-white/5 bg-[#0d0f14] shadow-2xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/[0.01]">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Module</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Focus</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Metrics</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Operation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {topicTests.map(({ test }) => (
+                    <motion.tr
+                      key={test.id}
+                      whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
+                      className="group transition-all duration-300"
                     >
-                      {test.difficulty}
-                    </Badge>
-                  </div>
-                  <CardTitle className="flex items-center gap-2 text-xl group-hover:text-teal-700 transition-colors">
-                    {test.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1 flex flex-col">
-                  {test.description && (
-                    <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
-                      {test.description}
-                    </p>
-                  )}
-                  <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-4">
-                    <div className="flex justify-between text-sm font-medium text-gray-500">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4 text-teal-500" />
-                        {test.duration} mins
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <BarChart3 className="h-4 w-4 text-teal-500" />
-                        Practice
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 group-hover:shadow-blue-300 transition-all rounded-xl"
-                      onClick={() => handleStartTest(test.id)}
-                    >
-                      Start Test <PlayCircle className="ml-2 w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <td className="px-8 py-6">
+                        <div className="space-y-1">
+                          <h4 className="text-base font-bold text-white group-hover:text-cyan-400 transition-colors tracking-tight">
+                            {test.title}
+                          </h4>
+                          <p className="text-xs text-gray-500 line-clamp-1 max-w-md">{test.description}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <Badge className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-none font-black uppercase tracking-widest text-[9px]">
+                          {test.topic}
+                        </Badge>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Time</span>
+                            <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-cyan-500" /> {test.duration}m
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Rank</span>
+                            <Badge className="h-4 text-[8px] font-black uppercase tracking-tighter bg-white/5 text-gray-400 border-none">
+                              {test.difficulty}
+                            </Badge>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <Button
+                          onClick={() => handleStartTest(test.id)}
+                          className="bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl px-8 font-black uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-cyan-900/20 border border-cyan-400/20 active:scale-95"
+                        >
+                          Initialize <PlayCircle className="ml-2 w-3.5 h-3.5" />
+                        </Button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </motion.div>
       )}

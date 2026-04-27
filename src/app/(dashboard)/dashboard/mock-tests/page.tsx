@@ -96,7 +96,7 @@ export default function MockTestsPage() {
                 </Alert>
             </motion.div>
 
-            {/* Tests Grid */}
+            {/* Tests Registry */}
             {loading ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -106,73 +106,96 @@ export default function MockTestsPage() {
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+                    className="bg-white border border-gray-100 shadow-sm overflow-hidden rounded-none aivalytics-card"
                 >
-                    {tests.map((test) => {
-                        const style = getCompanyStyle(test.company);
-                        const isInProgress = test.status === 'IN_PROGRESS';
-                        const isCompleted = test.status === 'COMPLETED';
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-gray-50 bg-slate-50/50">
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Simulation Target</th>
+                                    <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Environment</th>
+                                    <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Hardware Allocation</th>
+                                    <th className="py-6 text-[10px] font-black uppercase tracking-widest text-gray-400">Metrics</th>
+                                    <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Surveillance Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {tests.map((test) => {
+                                    const style = getCompanyStyle(test.company);
+                                    const isInProgress = test.status === 'IN_PROGRESS';
+                                    const isCompleted = test.status === 'COMPLETED';
 
-                        return (
-                            <motion.div key={test.id} variants={itemVariants}>
-                                <Card className="h-full flex flex-col border-0 shadow-sm hover:shadow-2xl transition-all duration-500 group overflow-hidden rounded-none relative aivalytics-card">
-                                    <div className={`absolute top-0 left-0 w-full h-1.5 ${style.color}`} />
-                                    
-                                    <div className="p-6 flex flex-col h-full">
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="h-12 px-5 bg-gray-50 border border-gray-100 flex items-center justify-center shadow-inner group-hover:bg-primary/5 transition-colors">
-                                                <span className={`font-black text-sm uppercase tracking-widest ${style.textColor}`}>{test.company || "AiValytics"}</span>
-                                            </div>
-                                            {isCompleted ? (
-                                                <Badge className="bg-primary text-white font-black uppercase tracking-widest text-[8px] px-3 py-1 rounded-none border-0">Vaulted</Badge>
-                                            ) : isInProgress ? (
-                                                <Badge className="bg-amber-400 text-white font-black uppercase tracking-widest text-[8px] px-3 py-1 rounded-none border-0">Active</Badge>
-                                            ) : (
-                                                <Badge className="bg-gray-900 text-white font-black uppercase tracking-widest text-[8px] px-3 py-1 rounded-none border-0">New</Badge>
-                                            )}
-                                        </div>
+                                    return (
+                                        <motion.tr 
+                                            key={test.id} 
+                                            variants={itemVariants}
+                                            className="group hover:bg-slate-50 transition-all duration-300 cursor-pointer"
+                                        >
+                                            <td className="px-10 py-8">
+                                                <div className="flex items-center gap-6">
+                                                    <div className={`w-14 h-14 rounded-none flex items-center justify-center transition-all duration-500 group-hover:bg-primary group-hover:text-white shadow-sm border border-gray-100 bg-white`}>
+                                                        <span className={`font-black text-xs uppercase tracking-tighter ${style.textColor}`}>{test.company?.substring(0, 3) || "AI"}</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-gray-900 text-lg group-hover:text-primary transition-colors tracking-tight">{test.title}</h4>
+                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-1">{test.company || "CORPORATE STANDARD"}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                        <div className="mb-5">
-                                            <p className="text-caption text-gray-300 font-semibold uppercase tracking-wide mb-2">Recruitment Drive</p>
-                                            <h3 className="card-title text-gray-900 group-hover:text-primary transition-colors">{test.title}</h3>
-                                        </div>
+                                            <td className="py-8">
+                                                <Badge variant="outline" className="rounded-none border-gray-100 text-[8px] font-black uppercase tracking-widest px-3 py-1 bg-gray-50 text-gray-400">
+                                                    {test.difficulty}
+                                                </Badge>
+                                            </td>
 
-                                        <div className="grid grid-cols-2 gap-3 mb-5">
-                                            <div className="bg-gray-50 p-3 border border-gray-100">
-                                                <span className="text-gray-400 block text-caption font-semibold uppercase tracking-wide mb-1">Standard</span>
-                                                <span className="text-ui-sm font-semibold text-gray-900 uppercase">{test.difficulty}</span>
-                                            </div>
-                                            <div className="bg-gray-50 p-3 border border-gray-100">
-                                                <span className="text-gray-400 block text-caption font-semibold uppercase tracking-wide mb-1">Duration</span>
-                                                <span className="text-ui-sm font-semibold text-gray-900 uppercase">{test.duration} MINS</span>
-                                            </div>
-                                        </div>
+                                            <td className="py-8">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                        <MonitorPlay className="w-3.5 h-3.5 text-primary/40" /> {test._count?.questions || 0} Modules
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                        <Clock className="w-3.5 h-3.5 text-primary/40" /> {test.duration} Minutes
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                        <div className="space-y-2 mb-6">
-                                            <div className="flex items-center gap-2 text-caption font-semibold text-gray-400 uppercase tracking-wide">
-                                                <MonitorPlay className="w-4 h-4 text-primary/40" /> {test._count?.questions || 0} MODULES
-                                            </div>
-                                            <div className="flex items-center gap-2 text-caption font-semibold text-gray-400 uppercase tracking-wide">
-                                                <Lock className="w-4 h-4 text-primary/40" /> PROCTORED ACCESS
-                                            </div>
-                                        </div>
+                                            <td className="py-8">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-1.5 w-24 bg-gray-100 rounded-none overflow-hidden">
+                                                        <motion.div 
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: isCompleted ? '100%' : isInProgress ? '40%' : '0%' }}
+                                                            className={`h-full ${isCompleted ? 'bg-primary' : 'bg-amber-400'}`}
+                                                        />
+                                                    </div>
+                                                    <span className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">
+                                                        {isCompleted ? '100%' : isInProgress ? 'Active' : 'Ready'}
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                                        <div className="mt-auto">
-                                            <Link href={`/exam/${test.id}/dashboard`} className="w-full block">
-                                                <Button className={`w-full h-12 rounded-none text-ui font-semibold uppercase tracking-wide shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl flex items-center justify-center gap-2 ${isInProgress ? 'bg-amber-500 hover:bg-amber-600 text-white' : isCompleted ? 'bg-primary hover:bg-primary/90 text-white' : 'bg-gray-900 hover:bg-black text-white'}`}>
-                                                    <span>{isInProgress ? 'Resume Attempt' : isCompleted ? 'Audit Results' : 'Initialize Start'}</span>
-                                                    <ArrowRight className="w-4 h-4" />
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </motion.div>
-                        );
-                    })}
+                                            <td className="px-10 py-8 text-right">
+                                                <Link href={`/exam/${test.id}/dashboard`}>
+                                                    <Button className={`rounded-none font-black uppercase tracking-widest text-[9px] px-6 py-2.5 border-0 shadow-lg transition-all duration-300 hover:-translate-y-0.5 ${
+                                                        isCompleted ? 'bg-primary text-white shadow-primary/20' : 
+                                                        isInProgress ? 'bg-amber-400 text-white shadow-amber-400/20' : 
+                                                        'bg-gray-900 text-white shadow-gray-900/20'
+                                                    }`}>
+                                                        {isInProgress ? 'Resume Audit' : isCompleted ? 'View Report' : 'Initialize'}
+                                                    </Button>
+                                                </Link>
+                                            </td>
+                                        </motion.tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                     {tests.length === 0 && (
-                        <div className="col-span-full text-center py-32 bg-white border-2 border-dashed border-gray-100 shadow-inner">
-                            <h3 className="text-h4 text-gray-400 uppercase tracking-tight">No Drives Scheduled</h3>
+                        <div className="text-center py-32 bg-gray-50/50">
+                            <p className="text-gray-300 font-black uppercase tracking-[0.2em] text-sm italic">No scheduled simulations identified.</p>
+                            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest mt-2">Drives will appear here upon institutional activation.</p>
                         </div>
                     )}
                 </motion.div>

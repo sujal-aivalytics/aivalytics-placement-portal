@@ -2,7 +2,18 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, ListFilter, Circle, Trophy, Code2, ChevronRight } from "lucide-react";
+import { 
+    Search, 
+    ListFilter, 
+    Circle, 
+    Youtube, 
+    FileText, 
+    PlusCircle, 
+    Star, 
+    Code2,
+    CheckCircle,
+    Activity
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,18 +30,18 @@ export default function ProblemsList({ problems }: ProblemsListProps) {
     // Filter logic
     const filteredProblems = useMemo(() => {
         return problems.filter((problem) => {
-            // 1. Search Filter
+            const title = problem.title || "";
+            const id = problem.id || "";
             const matchesSearch =
-                problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                problem.id.toString().includes(searchQuery);
+                title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                id.toString().includes(searchQuery);
 
-            // 2. Category Filter
             let matchesCategory = true;
             if (activeTab !== "All") {
                 const type = problem.type || "";
                 matchesCategory =
                     type.toLowerCase() === activeTab.toLowerCase() ||
-                    problem.title.toLowerCase().includes(activeTab.toLowerCase());
+                    title.toLowerCase().includes(activeTab.toLowerCase());
             }
 
             return matchesSearch && matchesCategory;
@@ -39,16 +50,16 @@ export default function ProblemsList({ problems }: ProblemsListProps) {
 
     return (
         <div className="animate-in fade-in duration-1000">
-            {/* HEADER SECTION */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-                <div className="space-y-4">
-                    <p className="text-primary font-black uppercase tracking-[0.3em] text-[10px]">Development Environment</p>
-                    <h1 className="text-4xl lg:text-5xl font-black text-gray-900 tracking-tighter leading-none flex items-center gap-4">
-                        <Code2 className="w-10 h-10 text-primary" />
-                        Engineering <span className="text-primary italic">Registry</span>
+            {/* UPDATED ROW-WISE UI HEADER */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-8">
+                <div className="space-y-2">
+                    <p className="text-primary font-black uppercase tracking-[0.3em] text-[10px]">Neural Registry Platform</p>
+                    <h1 className="text-3xl lg:text-4xl font-black text-gray-900 tracking-tighter leading-none flex items-center gap-3">
+                        <Code2 className="w-8 h-8 text-primary" />
+                        Logic <span className="text-primary italic">Architecture</span>
                     </h1>
-                    <p className="text-gray-500 font-medium text-lg max-w-xl">
-                        A centralized database of logic challenges designed to audit architectural thinking and algorithmic precision.
+                    <p className="text-gray-500 font-medium text-base max-w-xl">
+                        A high-performance environment for technical evaluation and algorithmic precision.
                     </p>
                 </div>
 
@@ -57,30 +68,30 @@ export default function ProblemsList({ problems }: ProblemsListProps) {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
-                            placeholder="QUERY DATABASE..."
+                            placeholder="Search challenges..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-12 pr-6 h-14 bg-white border border-gray-100 rounded-none text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-primary/50 transition-all w-full shadow-sm"
+                            className="pl-12 pr-6 h-12 bg-white border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all w-full shadow-sm"
                         />
                     </div>
                 </div>
             </div>
 
             {/* CATEGORIES SECTION */}
-            <div className="flex items-center gap-2 mb-12 overflow-x-auto pb-4 scrollbar-hide border-b border-gray-100">
-                <div className="flex items-center gap-2 px-6 border-r border-gray-100 mr-4">
+            <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex items-center gap-2 px-4 border-r border-gray-200 mr-2">
                     <ListFilter className="w-4 h-4 text-gray-400" />
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Modules</span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter</span>
                 </div>
                 {categories.map((cat) => (
                     <button
                         key={cat}
                         onClick={() => setActiveTab(cat)}
                         className={cn(
-                            "px-8 py-3 rounded-none border text-[10px] font-black transition-all uppercase tracking-widest whitespace-nowrap",
+                            "px-5 py-2 rounded-xl border text-[10px] font-black transition-all uppercase tracking-widest whitespace-nowrap",
                             activeTab === cat
-                                ? "bg-gray-900 border-gray-900 text-white shadow-xl shadow-gray-900/10"
-                                : "bg-white border-gray-100 text-gray-400 hover:border-primary/30 hover:text-primary"
+                                ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
+                                : "bg-white border-gray-200 text-gray-500 hover:border-primary/40 hover:text-primary shadow-sm"
                         )}
                     >
                         {cat}
@@ -88,88 +99,133 @@ export default function ProblemsList({ problems }: ProblemsListProps) {
                 ))}
             </div>
 
-            {/* PROBLEMS TABLE */}
-            <div className="bg-white border-0 rounded-none shadow-sm hover:shadow-2xl transition-all duration-700 overflow-hidden aivalytics-card">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-50">
-                            <th className="px-10 py-6 font-black text-[10px] uppercase tracking-widest text-gray-400 w-24 text-center">
-                                Status
-                            </th>
-                            <th className="px-10 py-6 font-black text-[10px] uppercase tracking-widest text-gray-400">
-                                Challenge Index
-                            </th>
-                            <th className="px-10 py-6 font-black text-[10px] uppercase tracking-widest text-gray-400 w-44">
-                                Audit Difficulty
-                            </th>
-                            <th className="px-10 py-6 w-20"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {filteredProblems.map((problem) => (
-                            <tr
-                                key={problem.id}
-                                className="group hover:bg-slate-50 transition-all relative"
-                            >
-                                <td className="px-10 py-8 text-center">
-                                   <div className="w-8 h-8 rounded-none bg-gray-50 border border-gray-100 flex items-center justify-center mx-auto transition-all group-hover:bg-primary/5 group-hover:border-primary/20">
-                                        <Circle
-                                            className="text-gray-200 group-hover:text-primary transition-colors"
-                                            size={12}
-                                            strokeWidth={3}
-                                        />
-                                   </div>
-                                </td>
-                                <td className="px-10 py-8">
-                                    <div className="flex flex-col">
-                                        <Link
-                                            href={`/dashboard/programming/${problem.id}`}
-                                            className="font-black text-xl text-gray-900 tracking-tight group-hover:text-primary transition-colors flex items-center gap-4 after:absolute after:inset-0"
-                                        >
-                                            <span className="text-gray-300 font-black text-[10px] uppercase tracking-widest pt-1">
-                                                ID: {problem.id}
-                                            </span>
-                                            {problem.title}
-                                        </Link>
-                                        <div className="flex gap-3 mt-3">
-                                            {problem.type && (
-                                                <Badge className="rounded-none bg-gray-50 text-gray-400 border border-gray-100 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 shadow-none">
-                                                    {problem.type}
-                                                </Badge>
-                                            )}
-                                            <Badge className="rounded-none bg-primary/5 text-primary border border-primary/10 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 shadow-none">
-                                                Active Environment
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-10 py-8">
-                                    <Badge
-                                        className={cn(
-                                            "rounded-none text-[8px] font-black uppercase tracking-widest px-4 py-1.5 border-0 shadow-sm transition-all duration-500",
-                                            problem.difficulty === "Easy"
-                                                ? "bg-primary text-white shadow-primary/20"
-                                                : problem.difficulty === "Medium"
-                                                    ? "bg-amber-400 text-white shadow-amber-400/20"
-                                                    : "bg-gray-900 text-white shadow-gray-900/20"
-                                        )}
-                                    >
-                                        {problem.difficulty}
-                                    </Badge>
-                                </td>
-                                <td className="px-10 py-8 text-right">
-                                    <ChevronRight className="w-5 h-5 text-gray-200 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                </td>
+            {/* ACTUAL ROW-WISE UI (TABLE) */}
+            <div className="bg-background overflow-hidden border border-gray-800/60 group/table">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                            <tr className="border-b border-gray-800/80 bg-gray-900/40">
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center w-20">Status</th>
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500">Problem Module</th>
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">Solve Plus</th>
+                                {/* <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">YT Plus</th>
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">Resources</th> */}
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">Activity</th>
+                                {/* <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">Note</th> */}
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-center">Like</th>
+                                <th className="px-8 py-6 font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 text-right pr-12">Difficulty</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800/40">
+                            {filteredProblems.map((problem, idx) => (
+                                <tr
+                                    key={problem.id}
+                                    className="group/row hover:bg-white/[0.02] transition-all duration-300"
+                                >
+                                    <td className="px-8 py-8 text-center">
+                                        <div className="flex justify-center">
+                                            {problem.solved ? (
+                                                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                                                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-lg border-2 border-gray-800 group-hover/row:border-gray-700 transition-all flex items-center justify-center bg-gray-900/50">
+                                                    <Circle className="w-1.5 h-1.5 text-transparent" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-8">
+                                        <div className="flex flex-col">
+                                            <Link href={`/dashboard/programming/${problem.id}`} className="group/title">
+                                                <span className="text-gray-500 font-bold text-lg group-hover/title:text-primary transition-colors tracking-tight leading-tight block">
+                                                    {problem.title}
+                                                </span>
+                                            </Link>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                
+                                                {problem.type && (
+                                                    <span className="text-[9px] font-black text-primary/70 uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                                                        {problem.type}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-8 text-center">
+                                        <Link 
+                                            href={`/dashboard/programming/${problem.id}`} 
+                                            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white font-black text-[10px] uppercase tracking-widest transition-all active:scale-95"
+                                        >
+                                            Solve
+                                        </Link>
+                                    </td>
+                                    {/* <td className="px-8 py-8 text-center">
+                                        <div className="flex justify-center">
+                                            <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center group/icon hover:bg-orange-600 hover:shadow-[0_0_20px_rgba(234,88,12,0.4)] transition-all cursor-pointer border border-orange-500/20">
+                                                <Youtube className="w-5 h-5 text-orange-500 group-hover/icon:text-white transition-colors" />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-8 text-center">
+                                        <div className="flex items-center justify-center gap-5">
+                                            <div className="p-2.5 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer group/sub">
+                                                <FileText className="w-5 h-5 text-gray-600 group-hover/sub:text-gray-300 transition-colors" />
+                                            </div>
+                                            <div className="p-2.5 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer group/sub">
+                                                <Youtube className="w-5 h-5 text-[#ef4444] group-hover/sub:text-red-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                    </td> */}
+                                    <td className="px-8 py-8 text-center">
+                                        <div className="flex justify-center">
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center  border border-gray-800/40 opacity-40 group-hover/row:opacity-100 group-hover/row:border-primary/30 group-hover/row:bg-primary/5 transition-all">
+                                                <Activity className="w-5 h-5 text-primary" />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {/* <td className="px-8 py-8 text-center">
+                                        <div className="flex justify-center">
+                                            <button className="p-2.5 rounded-full bg-gray-900/50 border border-gray-800 hover:border-gray-600 hover:bg-gray-800 transition-all text-gray-500 hover:text-gray-200">
+                                                <PlusCircle className="w-6 h-6" />
+                                            </button>
+                                        </div>
+                                    </td> */}
+                                    <td className="px-8 py-8 text-center">
+                                        <div className="flex justify-center">
+                                            <button className="p-2.5 rounded-full hover:bg-amber-500/10 group/star transition-all">
+                                                <Star className="w-5 h-5 text-gray-800 group-hover/star:text-amber-500 group-hover/star:fill-amber-500 transition-all" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-8 text-right pr-12">
+                                        <Badge
+                                            className={cn(
+                                                "rounded-xl text-[10px] font-black uppercase tracking-[0.15em] px-5 py-2 border shadow-none transition-all duration-500",
+                                                problem.difficulty === "Easy"
+                                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 group-hover/row:bg-emerald-500 group-hover/row:text-white group-hover/row:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                                                    : problem.difficulty === "Medium"
+                                                        ? "bg-amber-500/10 text-amber-500 border-amber-500/20 group-hover/row:bg-amber-500 group-hover/row:text-white group-hover/row:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                                                        : "bg-rose-500/10 text-rose-500 border-rose-500/20 group-hover/row:bg-rose-500 group-hover/row:text-white group-hover/row:shadow-[0_0_20px_rgba(244,63,94,0.3)]"
+                                            )}
+                                        >
+                                            {problem.difficulty}
+                                        </Badge>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {filteredProblems.length === 0 && (
-                    <div className="py-40 text-center bg-gray-50/20">
-                        <Trophy className="w-16 h-16 text-gray-100 mx-auto mb-6" />
-                        <p className="text-gray-300 font-black uppercase tracking-[0.2em] text-sm italic">
-                            No records matched your search parameters.
+                    <div className="py-48 text-center bg-background border-t border-gray-800/40">
+                        <div className="relative inline-block mb-8">
+                            <Code2 className="w-20 h-20 text-gray-800 opacity-20" />
+                            <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full"></div>
+                        </div>
+                        <p className="text-gray-600 font-black uppercase tracking-[0.3em] text-[11px] max-w-xs mx-auto leading-loose">
+                            NO DATA SEGMENTS FOUND IN CURRENT <span className="text-primary">CORE REGISTRY</span>.
                         </p>
                     </div>
                 )}

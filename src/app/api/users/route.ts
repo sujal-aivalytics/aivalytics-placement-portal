@@ -13,7 +13,7 @@ export async function GET(_req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const usersSnapshot = await adminDb.collection("User").orderBy("email", "asc").get();
+        const usersSnapshot = await adminDb.collection("users").orderBy("email", "asc").get();
 
         const users = await Promise.all(usersSnapshot.docs.map(async (doc) => {
             const data = doc.data();
@@ -62,7 +62,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
 
-        const userRef = adminDb.collection("User").doc(userId);
+        const userRef = adminDb.collection("users").doc(userId);
         const userDoc = await userRef.get();
 
         if (!userDoc.exists) {
@@ -112,7 +112,7 @@ export async function DELETE(req: Request) {
         }
 
         // Delete user document
-        await adminDb.collection("User").doc(userId).delete();
+        await adminDb.collection("users").doc(userId).delete();
 
         // Optionally delete related data like results, accounts, sessions
         // For now, we follow the Prisma implementation which was a simple delete
