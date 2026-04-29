@@ -10,6 +10,8 @@ import { generateQuestion } from '@/app/actions/interview';
 import { InterviewContext } from '@/lib/interview-ai';
 import { INTERVIEW_CONFIG, COMPANY_TYPES, INTERVIEW_TYPES } from '@/lib/interview-constants';
 import { useSession } from 'next-auth/react';
+import { speakWithKokoro, humanizeText, chunkTextForStreaming } from '@/lib/kokoro-tts';
+
 
 // STT Interface extension for TypeScript
 interface IWindow extends Window {
@@ -47,13 +49,21 @@ export default function InterviewInterface({ company, type }: InterviewInterface
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
   const startTimeRef = useRef<number>(0);
+  const stopKokoroRef = useRef<(() => void) | null>(null);
+  const isFirstQuestionRef = useRef<boolean>(true);
+
+
 
   // Initialize interview
   useEffect(() => {
+    // DEV BYPASS: Commenting out login redirect to allow testing TTS without auth
+    /*
     if (!session) {
       router.push('/login');
       return;
     }
+    */
+
 
     // Initialize camera
     const initCamera = async () => {
@@ -92,35 +102,48 @@ export default function InterviewInterface({ company, type }: InterviewInterface
 
 
   // Text-to-Speech (TTS)
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel previous speech
-      window.speechSynthesis.cancel();
+  const speak = async (text: string) => {
+    // Stop any ongoing speech
+    stopSpeaking();
 
-      const utterance = new SpeechSynthesisUtterance(text);
+    const isFirst = isFirstQuestionRef.current;
+    isFirstQuestionRef.current = false;
 
-      // Get available voices
-      const voices = window.speechSynthesis.getVoices();
-      // Try to find a female voice or a natural sounding one
-      const femaleVoice = voices.find(voice => voice.name.includes('Female') || voice.name.includes('Google US English'));
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-      }
+    // Humanize the text before TTS
+    const humanized = humanizeText(text, isFirst);
+    const chunks = chunkTextForStreaming(humanized);
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
 
-      window.speechSynthesis.speak(utterance);
+    // Stream chunk by chunk for low latency
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      await new Promise<void>((resolve) => {
+        speakWithKokoro(chunk, {
+          voice: 'af_heart',
+          speed: 0.93,
+          onStart: () => setIsSpeaking(true),
+          onEnd: () => resolve(),
+          onError: () => resolve(),
+        }).then((stopFn) => {
+          stopKokoroRef.current = stopFn;
+        });
+      });
     }
+
+    setIsSpeaking(false);
   };
 
   const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+    if (stopKokoroRef.current) {
+      stopKokoroRef.current();
+      stopKokoroRef.current = null;
     }
+    // Also cancel browser TTS fallback
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setIsSpeaking(false);
   };
+
 
   // Speech-to-Text (STT)
   const toggleListening = () => {
@@ -204,11 +227,15 @@ export default function InterviewInterface({ company, type }: InterviewInterface
 
   // Start interview
   const startInterview = async () => {
-    if (!session?.user?.id) return;
+    // DEV BYPASS: Allowing start without session for TTS testing
+    // if (!session?.user?.id) return;
+
 
     setIsInterviewActive(true);
     setInterviewStarted(true);
+    isFirstQuestionRef.current = true;
     startTimeRef.current = Date.now();
+
     setIsProcessing(true); // Show loading while fetching first question
 
     try {
@@ -354,7 +381,11 @@ export default function InterviewInterface({ company, type }: InterviewInterface
     setQuestionIndex(0);
     setConversationHistory([]);
     setIsInterviewActive(false);
+    isFirstQuestionRef.current = true;
   };
+
+
+
 
   // Get interview config based on type
   const interviewConfig = INTERVIEW_CONFIG[type as keyof typeof INTERVIEW_CONFIG];

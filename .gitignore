@@ -42,3 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# sensitive and large files
+firebase-service-account.json
+*.onnx
+*.bin
+*.wav
