@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner"; // Assuming sonner is used, or alerts
 
@@ -17,34 +17,48 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
-    const headers = new Headers();
     const from = searchParams.get('from') || '/dashboard';
+    const error = searchParams.get('error');
+
+    useEffect(() => {
+        if (error === 'OAuthAccountNotLinked') {
+            toast.error("This email is already associated with an account. Please sign in with your password.");
+        } else if (error) {
+            toast.error("An authentication error occurred. Please try again.");
+        }
+    }, [error]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
+            console.log("Starting sign-in process for:", email);
             const result = await signIn("credentials", {
                 email,
                 password,
                 redirect: false,
             });
 
+            console.log("SignIn result:", result);
+
             if (result?.error) {
                 // Show error
                 console.error("Login failed:", result.error);
                 toast.error("Invalid email or password. Please try again.");
             } else if (result?.ok) {
-                // Fetch session to check role
-                const response = await fetch("/api/auth/session");
-                const session = await response.json();
+                // Fetch session to check role using getSession for better reliability
+                console.log("Login OK, fetching session...");
+                const session = await getSession();
+                console.log("Session retrieved:", session);
 
                 toast.success("Login successful!");
 
                 if (session?.user?.role === 'admin') {
+                    console.log("Redirecting to /admin");
                     router.push('/admin');
                 } else {
+                    console.log("Redirecting to:", from);
                     router.push(from);
                 }
                 router.refresh();

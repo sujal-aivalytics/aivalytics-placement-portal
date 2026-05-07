@@ -1,0 +1,24 @@
+{
+  "collection": "subtopics",
+  "updatedAt": "2026-05-07T07:51:12.448Z",
+  "data": [
+    {
+      "testId": "cmkzo1pp80000igfi5hr4hxe9",
+      "name": "Verbal Section",
+      "description": null,
+      "order": 0,
+      "roundTitle": null,
+      "type": "assessment",
+      "totalQuestions": 0,
+      "createdAt": {
+        "_seconds": 1778140271,
+        "_nanoseconds": 952000000
+      },
+      "updatedAt": {
+        "_seconds": 1778140271,
+        "_nanoseconds": 952000000
+      },
+      "id": "XxAaCFTrSSd3mCI0XUHi"
+    }
+  ]
+}
