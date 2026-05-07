@@ -47,21 +47,12 @@ export default function LoginPage() {
                 console.error("Login failed:", result.error);
                 toast.error("Invalid email or password. Please try again.");
             } else if (result?.ok) {
-                // Fetch session to check role using getSession for better reliability
-                console.log("Login OK, fetching session...");
-                const session = await getSession();
-                console.log("Session retrieved:", session);
-
+                console.log("Login successful, redirecting...");
                 toast.success("Login successful!");
-
-                if (session?.user?.role === 'admin') {
-                    console.log("Redirecting to /admin");
-                    router.push('/admin');
-                } else {
-                    console.log("Redirecting to:", from);
-                    router.push(from);
-                }
-                router.refresh();
+                
+                // Use window.location.href for a more robust redirection in production
+                // This ensures cookies are properly sent and picked up by the server
+                window.location.href = from;
             }
         } catch (error) {
             console.error("Login error:", error);
