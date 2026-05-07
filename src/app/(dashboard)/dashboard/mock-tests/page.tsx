@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { MonitorPlay, Lock, ArrowRight, Info, ShieldAlert, Eye, MousePointerClick, AlertTriangle, CheckCircle2, PlayCircle, Loader2 } from "lucide-react";
+import { MonitorPlay, Lock, Clock, ArrowRight, Info, ShieldAlert, Eye, MousePointerClick, AlertTriangle, CheckCircle2, PlayCircle, Loader2 } from "lucide-react";
 import Image from 'next/image';
 import Link from 'next/link';
 import { Loader } from "@/components/ui/loader";

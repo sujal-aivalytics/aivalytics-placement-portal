@@ -1,5 +1,7 @@
 import React from 'react';
 import { Poppins } from 'next/font/google';
+export const dynamic = "force-dynamic";
+
 import { Building2 } from 'lucide-react';
 
 const poppins = Poppins({

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Inter } from 'next/font/google';
+export const dynamic = "force-dynamic";
+
 import Image from 'next/image';
 import { getOrCreatePlacementApplication } from "@/app/actions/placement";
 import { Building2 } from 'lucide-react';

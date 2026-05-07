@@ -125,7 +125,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).role = token.role;
                 (session.user as any).id = token.sub!;
                 (session.user as any).isProfileComplete = token.isProfileComplete;
-                console.log(`[AUTH] Session created: user=${session.user.email}, isComplete=${token.isProfileComplete}`);
+                console.log(`[AUTH] Session created for user=${session.user.email}, id=${token.sub}, role=${token.role}, isComplete=${token.isProfileComplete}`);
             }
             return session;
         }
