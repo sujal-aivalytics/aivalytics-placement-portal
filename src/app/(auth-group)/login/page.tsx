@@ -6,8 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { signIn, getSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner"; // Assuming sonner is used, or alerts
 
 export default function LoginPage() {
@@ -15,10 +15,17 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '/dashboard';
+    const callbackUrl = searchParams.get('callbackUrl') || from;
     const error = searchParams.get('error');
+    const { status } = useSession();
+
+    useEffect(() => {
+        if (status === 'authenticated') {
+            window.location.href = callbackUrl;
+        }
+    }, [status, callbackUrl]);
 
     useEffect(() => {
         if (error === 'OAuthAccountNotLinked') {
@@ -52,7 +59,7 @@ export default function LoginPage() {
                 
                 // Use window.location.href for a more robust redirection in production
                 // This ensures cookies are properly sent and picked up by the server
-                window.location.href = from;
+                window.location.href = callbackUrl;
             }
         } catch (error) {
             console.error("Login error:", error);
@@ -136,7 +143,7 @@ export default function LoginPage() {
                     <Button
                         variant="outline"
                         type="button"
-                        onClick={() => signIn('google', { callbackUrl: from })}
+                        onClick={() => signIn('google', { callbackUrl })}
                         className="w-full h-16 rounded-none border-gray-100 hover:bg-gray-50 font-black text-gray-700 flex items-center justify-center gap-4 transition-all uppercase tracking-[0.2em] text-[10px] shadow-sm"
                     >
                         <img src="https://www.vectorlogo.zone/logos/google/google-icon.svg" className="w-5 h-5" alt="Google" />
