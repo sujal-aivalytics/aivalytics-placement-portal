@@ -18,6 +18,7 @@ export default function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '/dashboard';
+    const callbackUrl = searchParams.get('callbackUrl') || from;
     const error = searchParams.get('error');
 
     useEffect(() => {
@@ -52,7 +53,7 @@ export default function LoginPage() {
                 
                 // Use window.location.href for a more robust redirection in production
                 // This ensures cookies are properly sent and picked up by the server
-                window.location.href = from;
+                window.location.href = callbackUrl;
             }
         } catch (error) {
             console.error("Login error:", error);
@@ -136,7 +137,7 @@ export default function LoginPage() {
                     <Button
                         variant="outline"
                         type="button"
-                        onClick={() => signIn('google', { callbackUrl: from })}
+                        onClick={() => signIn('google', { callbackUrl })}
                         className="w-full h-16 rounded-none border-gray-100 hover:bg-gray-50 font-black text-gray-700 flex items-center justify-center gap-4 transition-all uppercase tracking-[0.2em] text-[10px] shadow-sm"
                     >
                         <img src="https://www.vectorlogo.zone/logos/google/google-icon.svg" className="w-5 h-5" alt="Google" />
