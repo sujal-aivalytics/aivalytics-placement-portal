@@ -134,7 +134,15 @@ export const authOptions: NextAuthOptions = {
         }
     },
     pages: {
-        signIn: '/login',
+        signIn: "/login",
+        error: "/login",
     },
     debug: process.env.NODE_ENV === 'development',
+    debug: true,
+    logger: {
+      error(code, metadata) {
+        console.error("NEXTAUTH_ERROR", code, metadata);
+      },
+    },
+
 };
