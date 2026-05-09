@@ -18,7 +18,8 @@ export default function LoginPage() {
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '/dashboard';
     //const callbackUrl = searchParams.get('callbackUrl') || from;
-    const callbackUrl = "/dashboard";
+    //const callbackUrl = "/dashboard";
+    const callbackUrl = "/dashboard/profile?incomplete=true"
     const error = searchParams.get('error');
 
     useEffect(() => {
