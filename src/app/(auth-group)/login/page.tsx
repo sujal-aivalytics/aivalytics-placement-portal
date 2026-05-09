@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner"; // Assuming sonner is used, or alerts
 
@@ -19,13 +19,6 @@ export default function LoginPage() {
     const from = searchParams.get('from') || '/dashboard';
     const callbackUrl = searchParams.get('callbackUrl') || from;
     const error = searchParams.get('error');
-    const { status } = useSession();
-
-     useEffect(() => {
-        if (status === 'authenticated') {
-            window.location.href = callbackUrl;
-        }
-    }, [status, callbackUrl]);
 
     useEffect(() => {
         if (error === 'OAuthAccountNotLinked') {
