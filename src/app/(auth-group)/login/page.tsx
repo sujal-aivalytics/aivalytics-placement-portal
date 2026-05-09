@@ -20,6 +20,13 @@ export default function LoginPage() {
     const from = searchParams.get('from') || '/dashboard';
     const callbackUrl = searchParams.get('callbackUrl') || from;
     const error = searchParams.get('error');
+    const { status } = useSession();
+
+     useEffect(() => {
+        if (status === 'authenticated') {
+            window.location.href = callbackUrl;
+        }
+    }, [status, callbackUrl]);
 
     useEffect(() => {
         if (error === 'OAuthAccountNotLinked') {
