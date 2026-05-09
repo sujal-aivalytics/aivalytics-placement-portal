@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import * as admin from 'firebase-admin';
+import { adminDb } from '@/lib/firebase-config';
 
 // GET - List assignments (Admin check or user check)
 export async function GET(req: Request) {
