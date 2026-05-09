@@ -13,7 +13,10 @@ export default withAuth(
             if (isAuth) {
                 const role = token.role || 'user';
                 if (role === 'admin') {
-                    return NextResponse.redirect(new URL('/admin/dashboard', req.url));
+                    return NextResponse.redirect(new URL('/admin', req.url));
+                }
+                if (!token.isProfileComplete) {
+                    return NextResponse.redirect(new URL('/dashboard/profile?incomplete=true', req.url));
                 }
                 return NextResponse.redirect(new URL('/dashboard', req.url));
             }
@@ -42,6 +45,7 @@ export default withAuth(
         }
     },
     {
+        secret: process.env.NEXTAUTH_SECRET,
         callbacks: {
             authorized: ({ token, req }) => {
                 const { pathname } = req.nextUrl;
