@@ -1,148 +1,193 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { FirestoreAdapter } from "@next-auth/firebase-adapter";
 import { adminDb } from "@/lib/firebase-config";
 import bcrypt from "bcryptjs";
+import * as admin from "firebase-admin";
 
 export const authOptions: NextAuthOptions = {
-    adapter: FirestoreAdapter(adminDb) as any,
+  secret: process.env.NEXTAUTH_SECRET,
+
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+  },
+
+  jwt: {
     secret: process.env.NEXTAUTH_SECRET,
-    providers: [
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-            allowDangerousEmailAccountLinking: true,
-        }),
-        CredentialsProvider({
-            name: "Credentials",
-            credentials: {
-                email: { label: "Email", type: "email", placeholder: "user@example.com" },
-                password: { label: "Password", type: "password" }
-            },
-            async authorize(credentials) {
-                try {
-                    if (!credentials?.email || !credentials?.password) {
-                        console.log('❌ Login failed: Missing credentials');
-                        throw new Error('Missing credentials');
-                    }
+  },
 
-                    console.log('🔄 Attempting login for:', credentials.email);
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
+    }),
 
-                    // Find user in Firestore
-                    const userSnapshot = await adminDb.collection("users")
-                        .where("email", "==", credentials.email)
-                        .limit(1)
-                        .get();
-
-                    if (userSnapshot.empty) {
-                        console.log('❌ Login failed: User not found');
-                        throw new Error('Invalid credentials');
-                    }
-
-                    const userDoc = userSnapshot.docs[0];
-                    const user = userDoc.data();
-
-                    if (!user.password) {
-                        console.log('❌ Login failed: User has no password (maybe Google login?)');
-                        throw new Error('Invalid credentials');
-                    }
-
-                    // Verify password
-                    const isPasswordValid = await bcrypt.compare(
-                        credentials.password,
-                        user.password
-                    );
-
-                    if (!isPasswordValid) {
-                        console.log('❌ Login failed: Invalid password');
-                        throw new Error('Invalid credentials');
-                    }
-
-                    console.log('✅ Login successful for:', user.email);
-
-                    // Return user object with role
-                    return {
-                        id: userDoc.id,
-                        name: user.name,
-                        email: user.email,
-                        image: user.image,
-                        role: user.role as "admin" | "user",
-                    };
-                } catch (error) {
-                    console.error('❌ Authorization error:', error);
-                    return null;
-                }
-            }
-        })
-    ],
-    session: {
-        strategy: "jwt",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-    },
-    jwt: {
-        secret: process.env.NEXTAUTH_SECRET,
-    },
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.role = (user as any).role;
-                token.isProfileComplete = false; // Default
-            }
-
-            if (token.sub || token.email) {
-                // Try by ID first, then by Email
-                let userDoc = token.sub ? await adminDb.collection("users").doc(token.sub).get() : null;
-                let dbUser = userDoc?.exists ? userDoc.data() : null;
-
-                if (!dbUser && token.email) {
-                    const emailSnap = await adminDb.collection("users")
-                        .where("email", "==", token.email)
-                        .limit(1)
-                        .get();
-                    if (!emailSnap.empty) {
-                        dbUser = emailSnap.docs[0].data();
-                        // Sync token.sub if it was wrong
-                        token.sub = emailSnap.docs[0].id;
-                    }
-                }
-
-                if (dbUser) {
-                    token.role = dbUser.role as "admin" | "user";
-                    const isComplete = !!(
-                        dbUser.phone &&
-                        dbUser.name &&
-                        dbUser.email
-                    );
-                    token.isProfileComplete = isComplete;
-                    console.log(`[AUTH] Token sync success: email=${dbUser.email}, isComplete=${isComplete}`);
-                } else {
-                    console.log(`[AUTH] User fallback failed for: ${token.email || token.sub}`);
-                }
-            }
-
-            return token;
-        },
-        async session({ session, token }) {
-            if (session.user) {
-                (session.user as any).role = token.role;
-                (session.user as any).id = token.sub!;
-                (session.user as any).isProfileComplete = token.isProfileComplete;
-                console.log(`[AUTH] Session created for user=${session.user.email}, id=${token.sub}, role=${token.role}, isComplete=${token.isProfileComplete}`);
-            }
-            return session;
-        }
-    },
-    pages: {
-        signIn: "/login",
-        error: "/login",
-    },
-    debug: process.env.NODE_ENV === 'development',
-    debug: true,
-    logger: {
-      error(code, metadata) {
-        console.error("NEXTAUTH_ERROR", code, metadata);
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email", placeholder: "user@example.com" },
+        password: { label: "Password", type: "password" },
       },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const userSnapshot = await adminDb
+            .collection("users")
+            .where("email", "==", credentials.email)
+            .limit(1)
+            .get();
+
+          if (userSnapshot.empty) {
+            return null;
+          }
+
+          const userDoc = userSnapshot.docs[0];
+          const user = userDoc.data();
+
+          if (!user.password) {
+            return null;
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: userDoc.id,
+            name: user.name,
+            email: user.email,
+            image: user.image ?? null,
+            role: user.role ?? "user",
+          };
+        } catch (error) {
+          console.error("Credentials authorize error:", error);
+          return null;
+        }
+      },
+    }),
+  ],
+
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "google" || !user.email) {
+        return true;
+      }
+
+      try {
+        const now = admin.firestore.Timestamp.now();
+        const existingUserSnapshot = await adminDb
+          .collection("users")
+          .where("email", "==", user.email)
+          .limit(1)
+          .get();
+
+        if (existingUserSnapshot.empty) {
+          const userRef = adminDb.collection("users").doc();
+
+          await userRef.set({
+            id: userRef.id,
+            name: user.name ?? "",
+            email: user.email,
+            image: user.image ?? null,
+            phone: "",
+            collegeName: "",
+            role: "user",
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          (user as any).id = userRef.id;
+        } else {
+          const existingDoc = existingUserSnapshot.docs[0];
+
+          await existingDoc.ref.set(
+            {
+              name: user.name ?? existingDoc.data().name ?? "",
+              email: user.email,
+              image: user.image ?? null,
+              updatedAt: now,
+            },
+            { merge: true }
+          );
+
+          (user as any).id = existingDoc.id;
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Google signIn callback error:", error);
+        return false;
+      }
     },
 
+    async jwt({ token, user }) {
+      try {
+        const email = user?.email ?? token.email;
+
+        if (!email) {
+          return token;
+        }
+
+        const userSnapshot = await adminDb
+          .collection("users")
+          .where("email", "==", email)
+          .limit(1)
+          .get();
+
+        if (!userSnapshot.empty) {
+          const userDoc = userSnapshot.docs[0];
+          const dbUser = userDoc.data();
+
+          token.sub = userDoc.id;
+          token.email = dbUser.email ?? email;
+          token.name = dbUser.name ?? token.name;
+          token.picture = dbUser.image ?? token.picture;
+          (token as any).role = dbUser.role ?? "user";
+          (token as any).isProfileComplete = !!(
+            dbUser.phone &&
+            dbUser.name &&
+            dbUser.email
+          );
+        }
+
+        return token;
+      } catch (error) {
+        console.error("JWT callback error:", error);
+        return token;
+      }
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id = token.sub;
+        (session.user as any).role = (token as any).role ?? "user";
+        (session.user as any).isProfileComplete =
+          (token as any).isProfileComplete ?? false;
+      }
+
+      return session;
+    },
+  },
+
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+
+  debug: true,
+  logger: {
+    error(code, metadata) {
+      console.error("NEXTAUTH_ERROR", code, metadata);
+    },
+  },
 };
