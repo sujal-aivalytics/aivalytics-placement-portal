@@ -17,7 +17,8 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '/dashboard';
-    const callbackUrl = searchParams.get('callbackUrl') || from;
+    #const callbackUrl = searchParams.get('callbackUrl') || from;
+    const callbackUrl = "/dashboard";
     const error = searchParams.get('error');
 
     useEffect(() => {
