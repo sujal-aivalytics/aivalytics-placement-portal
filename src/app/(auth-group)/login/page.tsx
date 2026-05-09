@@ -58,7 +58,10 @@ export default function LoginPage() {
             }
         } catch (error) {
             console.error("Login error:", error);
-            toast.error("Something went wrong. Please try again.");
+            //toast.error("Something went wrong. Please try again.");
+            if (error) {
+              toast.error(`Auth error: ${error}`);
+            }
         } finally {
             setLoading(false);
         }
