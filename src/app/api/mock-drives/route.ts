@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-//import { adminDb } from '@/lib/firebase-config';
+import { adminDb } from '@/lib/firebase-config';
 import * as admin from 'firebase-admin';
 import { loadLocalData, isLocalhostMode } from '@/lib/local-storage';
 
