@@ -6,8 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { signIn, getSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner"; // Assuming sonner is used, or alerts
 
 export default function LoginPage() {
@@ -15,14 +15,13 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '/dashboard';
     const callbackUrl = searchParams.get('callbackUrl') || from;
     const error = searchParams.get('error');
     const { status } = useSession();
 
-     useEffect(() => {
+    useEffect(() => {
         if (status === 'authenticated') {
             window.location.href = callbackUrl;
         }
