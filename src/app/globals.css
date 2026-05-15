@@ -704,3 +704,9 @@
     transform: translateY(0);
   }
 }
+
+/* Hide default Edge password reveal icon */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

@@ -153,7 +153,7 @@ const SidebarContent = ({
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="h-20 flex items-center px-6 border-b border-gray-50">
+      <div className={cn("h-20 flex items-center border-b border-gray-50", collapsed ? "justify-center" : "px-6")}>
         {!collapsed ? (
           <div className="flex flex-col group cursor-pointer transition-all duration-500 hover:scale-105">
             <span className="text-h3 tracking-tight text-gray-900 leading-none text-primary transition-all duration-300 group-hover:tracking-tighter">AiValytics</span>

@@ -419,7 +419,7 @@ export default function UserDashboard() {
                   <p className="text-primary font-black uppercase tracking-[0.3em] text-[10px] mt-3 italic">{profile.role === 'student' ? 'Institutional Member' : 'Faculty curator'}</p>
 
                   <div className="mt-8 space-y-3 w-full">
-                    <div className="bg-[#f0f9f8] p-5 rounded-none border border-primary/5 flex items-center justify-between">
+                    <div className="bg-[#f0f9f8] p-4 rounded-none border border-primary/5 flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Global Rank</div>
                       <div className="text-xl font-black text-gray-900">#42</div>
                     </div>
