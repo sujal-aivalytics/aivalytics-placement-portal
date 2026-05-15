@@ -38,7 +38,7 @@ export default function DashboardLayout({
 
             {/* Main Content Area */}
             <main className="flex-1 h-screen overflow-y-auto overflow-x-hidden transition-all duration-300">
-                <div className={`transition-all duration-300 min-h-screen flex flex-col ${!hideSidebar ? (collapsed ? 'lg:pl-28' : 'lg:pl-72') : ''}`}>
+                <div className={`transition-all duration-300 min-h-screen flex flex-col ${!hideSidebar ? (collapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
                     <DashboardHeader setMobileOpen={setMobileOpen} />
 
                     <div className="flex-1 w-full relative p-4 md:p-6 lg:p-8">

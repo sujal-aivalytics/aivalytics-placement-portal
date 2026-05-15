@@ -704,3 +704,9 @@
     transform: translateY(0);
   }
 }
+
+/* Hide Microsoft Edge default password reveal icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
