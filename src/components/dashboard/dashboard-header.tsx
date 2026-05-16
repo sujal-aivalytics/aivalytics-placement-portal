@@ -62,9 +62,6 @@ export function DashboardHeader({ setMobileOpen }: DashboardHeaderProps) {
 
             {/* Right Actions */}
             <div className="flex items-center gap-2 md:gap-4 ml-auto">
-                <Button asChild className="hidden md:flex bg-[#00B4A0] hover:bg-[#00B4A0]/90 text-white font-bold rounded-full px-5 py-2 h-9 shadow-lg shadow-[#00B4A0]/20 transition-all hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider text-[10px]">
-                    <Link href="/signup">GET CERTIFICATE</Link>
-                </Button>
 
                 {/* Notifications Dropdown */}
                 <DropdownMenu>
